@@ -36,8 +36,11 @@
         <div id="territory-tooltip" class="territory-tooltip hidden"></div>
       </div>
 
+      <!-- Resize Handle (panel width) -->
+      <div class="resize-handle-v" id="resize-panel"></div>
+
       <!-- Right Panel -->
-      <div class="right-panel">
+      <div class="right-panel" id="right-panel">
         <div class="panel-section" id="empire-stats-panel">
           <h2 class="panel-title">Empires</h2>
           <div id="empire-stats"></div>
@@ -50,11 +53,18 @@
           <h2 class="panel-title">Diplomacy</h2>
           <div id="diplomacy-feed"></div>
         </div>
+        <div class="panel-section" id="messages-panel">
+          <h2 class="panel-title">Messages</h2>
+          <div id="messages-feed"></div>
+        </div>
       </div>
     </div>
 
+    <!-- Resize Handle (bottom bar height) -->
+    <div class="resize-handle-h" id="resize-bottom"></div>
+
     <!-- Bottom Bar -->
-    <div class="bottom-bar">
+    <div class="bottom-bar" id="bottom-bar">
       <div class="turn-controls" id="turn-controls"></div>
       <div class="event-log-area">
         <h3 class="event-log-title">Event Log</h3>

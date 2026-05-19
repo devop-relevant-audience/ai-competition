@@ -39,8 +39,8 @@ export class ResponseParser {
       parsed.actions = [{ type: 'do_nothing' }];
     }
 
-    if (parsed.actions.length > 4) {
-      parsed.actions = parsed.actions.slice(0, 4);
+    if (parsed.actions.length > 5) {
+      parsed.actions = parsed.actions.slice(0, 5);
     }
 
     const validActions = [];

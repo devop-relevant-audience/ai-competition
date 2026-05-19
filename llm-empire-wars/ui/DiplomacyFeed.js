@@ -6,7 +6,7 @@ export class DiplomacyFeed {
 
   update(gameState) {
     const messages = gameState.diplomacyQueue
-      .filter(m => m.turn >= gameState.meta.turn - 5)
+      .filter(m => m.type !== 'send_message' && m.turn >= gameState.meta.turn - 5)
       .sort((a, b) => b.turn - a.turn)
       .slice(0, this.maxMessages);
 

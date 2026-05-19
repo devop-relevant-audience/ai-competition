@@ -41,4 +41,19 @@ export const EMPIRE_DEFINITIONS = [
     startingTerritories: ['germany', 'poland', 'austria', 'czech_republic'],
     startingArmySize: 8,
   },
+  {
+    id: 'empire_amber',
+    name: 'The Amber Pact',
+    model: 'deepseek/deepseek-v4-pro',
+    personality: 'balkan_powder_keg',
+    personalityDescription:
+      'You are a volatile, fiercely proud confederation born from the Balkans. You hold grudges forever and never forget a slight. ' +
+      'You form alliances passionately but break them just as fast when you feel disrespected. You fight over honor as much as territory. ' +
+      'You are loud, dramatic, and love sending threatening messages. You distrust everyone equally but will rally against any empire that dares ' +
+      'to look down on you. You punch above your weight and take enormous risks. You would rather burn everything down than accept a bad deal.',
+    color: '#e67e22',
+    colorLight: 'rgba(230, 126, 34, 0.3)',
+    startingTerritories: ['serbia', 'greece', 'romania', 'bulgaria'],
+    startingArmySize: 8,
+  },
 ];

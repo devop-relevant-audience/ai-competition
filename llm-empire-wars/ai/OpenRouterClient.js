@@ -6,8 +6,8 @@ export const OpenRouterConfig = {
   temperature: 0.8,
 };
 
-const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 2000;
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 1500;
 
 export async function callAI(systemPrompt, userPrompt) {
   let lastError = null;

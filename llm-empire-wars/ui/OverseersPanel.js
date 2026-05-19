@@ -1,6 +1,7 @@
 import { EmpireStats } from './EmpireStats.js';
 import { ReasoningLog } from './ReasoningLog.js';
 import { DiplomacyFeed } from './DiplomacyFeed.js';
+import { MessagesFeed } from './MessagesFeed.js';
 import { EventLog } from './EventLog.js';
 import { TurnControls } from './TurnControls.js';
 
@@ -9,6 +10,7 @@ export class OverseersPanel {
     this.empireStats = new EmpireStats(document.getElementById('empire-stats'));
     this.reasoningLog = new ReasoningLog(document.getElementById('reasoning-log'));
     this.diplomacyFeed = new DiplomacyFeed(document.getElementById('diplomacy-feed'));
+    this.messagesFeed = new MessagesFeed(document.getElementById('messages-feed'));
     this.eventLog = new EventLog(document.getElementById('event-log'));
     this.turnControls = new TurnControls(
       document.getElementById('turn-controls'),
@@ -17,6 +19,7 @@ export class OverseersPanel {
     );
 
     this._bindEvents();
+    this._initResizeHandles();
   }
 
   _bindEvents() {
@@ -35,10 +38,64 @@ export class OverseersPanel {
     });
   }
 
+  _initResizeHandles() {
+    const panelHandle = document.getElementById('resize-panel');
+    const bottomHandle = document.getElementById('resize-bottom');
+    const rightPanel = document.getElementById('right-panel');
+    const bottomBar = document.getElementById('bottom-bar');
+
+    if (panelHandle && rightPanel) {
+      this._makeDraggable(panelHandle, 'col', (delta) => {
+        const current = rightPanel.offsetWidth;
+        const next = Math.max(260, Math.min(700, current - delta));
+        rightPanel.style.width = next + 'px';
+      });
+    }
+
+    if (bottomHandle && bottomBar) {
+      this._makeDraggable(bottomHandle, 'row', (delta) => {
+        const current = bottomBar.offsetHeight;
+        const next = Math.max(100, Math.min(400, current - delta));
+        bottomBar.style.height = next + 'px';
+      });
+    }
+  }
+
+  _makeDraggable(handle, direction, onDrag) {
+    let startPos = 0;
+    const prop = direction === 'col' ? 'clientX' : 'clientY';
+
+    const onMove = (e) => {
+      const delta = e[prop] - startPos;
+      startPos = e[prop];
+      onDrag(delta);
+    };
+
+    const onUp = () => {
+      handle.classList.remove('active');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      window.dispatchEvent(new Event('resize'));
+    };
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      startPos = e[prop];
+      handle.classList.add('active');
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = direction === 'col' ? 'col-resize' : 'row-resize';
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
   updateState(gameState) {
     this.gameState = gameState;
     this.empireStats.update(gameState);
     this.diplomacyFeed.update(gameState);
+    this.messagesFeed.update(gameState);
     this.eventLog.update(gameState);
     this.turnControls.updateState(gameState);
   }

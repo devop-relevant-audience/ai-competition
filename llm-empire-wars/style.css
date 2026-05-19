@@ -211,6 +211,29 @@ body {
 
 .tooltip-resources span { color: var(--text-muted); }
 
+/* Resize Handles */
+.resize-handle-v {
+  width: 5px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s;
+  flex-shrink: 0;
+  z-index: 10;
+}
+.resize-handle-v:hover,
+.resize-handle-v.active { background: var(--accent); }
+
+.resize-handle-h {
+  height: 5px;
+  cursor: row-resize;
+  background: transparent;
+  transition: background 0.15s;
+  flex-shrink: 0;
+  z-index: 10;
+}
+.resize-handle-h:hover,
+.resize-handle-h.active { background: var(--accent); }
+
 /* Right Panel */
 .right-panel {
   width: var(--panel-width);
@@ -362,6 +385,31 @@ body {
 .diplo-type.alliance { background: rgba(52,152,219,0.2); color: var(--info); }
 .diplo-type.message { background: rgba(108,92,231,0.2); color: var(--accent); }
 .diplo-type.betray { background: rgba(231,76,60,0.3); color: var(--danger); }
+
+/* Messages Feed */
+.msg-entry {
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  border-left: 3px solid var(--accent);
+}
+
+.msg-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.msg-body {
+  color: var(--text-secondary);
+  font-style: italic;
+}
 
 /* Bottom Bar */
 .bottom-bar {
