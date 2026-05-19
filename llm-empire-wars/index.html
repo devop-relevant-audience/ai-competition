@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Empire Wars</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Setup Screen -->
+  <div id="setup-screen" class="setup-screen">
+    <div class="setup-card">
+      <h1 class="setup-title">LLM Empire Wars</h1>
+      <p class="setup-subtitle">Watch AI empires battle for European dominance</p>
+      <div class="setup-field">
+        <label for="api-key-input">OpenRouter API Key</label>
+        <input type="password" id="api-key-input" placeholder="sk-or-..." autocomplete="off" />
+      </div>
+      <div class="setup-field">
+        <label for="turn-limit-input">Turn Limit</label>
+        <input type="number" id="turn-limit-input" value="50" min="10" max="200" />
+      </div>
+      <div class="setup-empires" id="setup-empires"></div>
+      <button id="start-game-btn" class="btn-primary" disabled>Start Simulation</button>
+      <p class="setup-error" id="setup-error"></p>
+    </div>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="game-screen" class="game-screen hidden">
+    <div class="game-layout">
+      <!-- Map Area -->
+      <div class="map-area">
+        <div id="map"></div>
+        <div id="territory-tooltip" class="territory-tooltip hidden"></div>
+      </div>
+
+      <!-- Right Panel -->
+      <div class="right-panel">
+        <div class="panel-section" id="empire-stats-panel">
+          <h2 class="panel-title">Empires</h2>
+          <div id="empire-stats"></div>
+        </div>
+        <div class="panel-section" id="reasoning-panel">
+          <h2 class="panel-title">AI Reasoning</h2>
+          <div id="reasoning-log"></div>
+        </div>
+        <div class="panel-section" id="diplomacy-panel">
+          <h2 class="panel-title">Diplomacy</h2>
+          <div id="diplomacy-feed"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Bar -->
+    <div class="bottom-bar">
+      <div class="turn-controls" id="turn-controls"></div>
+      <div class="event-log-area">
+        <h3 class="event-log-title">Event Log</h3>
+        <div id="event-log"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over Overlay -->
+  <div id="game-over-overlay" class="game-over-overlay hidden">
+    <div class="game-over-card">
+      <h1 id="game-over-title"></h1>
+      <p id="game-over-subtitle"></p>
+      <div id="game-over-stats"></div>
+      <button id="restart-btn" class="btn-primary">New Game</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
