@@ -1,9 +1,8 @@
 export const OpenRouterConfig = {
   apiKey: '',
   baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
-  model: 'deepseek/deepseek-v4-pro',
-  maxTokens: 800,
-  temperature: 0.8,
+  model: 'deepseek/deepseek-v4-flash',
+ 
 };
 
 const MAX_RETRIES = 3;
@@ -24,8 +23,6 @@ export async function callAI(systemPrompt, userPrompt) {
         },
         body: JSON.stringify({
           model: OpenRouterConfig.model,
-          max_tokens: OpenRouterConfig.maxTokens,
-          temperature: OpenRouterConfig.temperature,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },

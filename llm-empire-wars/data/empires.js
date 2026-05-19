@@ -2,7 +2,7 @@ export const EMPIRE_DEFINITIONS = [
   {
     id: 'empire_crimson',
     name: 'The Crimson Dominion',
-    model: 'deepseek/deepseek-v4-pro',
+    model: 'deepseek/deepseek-v4-flash',
     personality: 'aggressive_militarist',
     personalityDescription:
       'You are a ruthless military expansionist. You believe strength is the only language that matters. ' +
@@ -16,7 +16,7 @@ export const EMPIRE_DEFINITIONS = [
   {
     id: 'empire_azure',
     name: 'The Azure Federation',
-    model: 'deepseek/deepseek-v4-pro',
+    model: 'deepseek/deepseek-v4-flash',
     personality: 'diplomatic_trader',
     personalityDescription:
       'You are a masterful diplomat and trade magnate. You prefer wealth over warfare, building economic power through trade agreements. ' +
@@ -30,7 +30,7 @@ export const EMPIRE_DEFINITIONS = [
   {
     id: 'empire_verdant',
     name: 'The Verdant Imperium',
-    model: 'deepseek/deepseek-v4-pro',
+    model: 'deepseek/deepseek-v4-flash',
     personality: 'strategic_opportunist',
     personalityDescription:
       'You are a patient strategist who waits for the perfect moment to strike. You play all sides against each other, ' +
@@ -44,7 +44,7 @@ export const EMPIRE_DEFINITIONS = [
   {
     id: 'empire_amber',
     name: 'The Amber Pact',
-    model: 'deepseek/deepseek-v4-pro',
+    model: 'deepseek/deepseek-v4-flash',
     personality: 'balkan_powder_keg',
     personalityDescription:
       'You are a volatile, fiercely proud confederation born from the Balkans. You hold grudges forever and never forget a slight. ' +
