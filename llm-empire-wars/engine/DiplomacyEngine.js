@@ -1,4 +1,4 @@
-import { getRelationKey } from './GameState.js';
+import { getRelationKey, adjustConfidence } from './GameState.js';
 
 export class DiplomacyEngine {
   processDiplomaticActions(state, allActions) {
@@ -69,11 +69,15 @@ export class DiplomacyEngine {
       if (proposalKind === 'trade' && rel.status === 'neutral') {
         rel.status = 'trade';
         rel.tradeValue = 2;
+        adjustConfidence(fromEmpire, 2);
+        adjustConfidence(toEmpire, 2);
         events.push(this._makeEvent(state, 'trade_established',
           `${toEmpire.name} accepted ${fromEmpire.name}'s trade proposal!`,
           [empireId, targetId]));
       } else if (proposalKind === 'alliance' && (rel.status === 'trade' || rel.status === 'neutral')) {
         rel.status = 'alliance';
+        adjustConfidence(fromEmpire, 4);
+        adjustConfidence(toEmpire, 4);
         events.push(this._makeEvent(state, 'alliance_formed',
           `${toEmpire.name} accepted ${fromEmpire.name}'s alliance proposal!`,
           [empireId, targetId]));
@@ -81,6 +85,8 @@ export class DiplomacyEngine {
       } else if (proposalKind === 'peace' && rel.status === 'war') {
         rel.status = 'neutral';
         rel.peaceCooldownUntil = state.meta.turn + 3;
+        adjustConfidence(fromEmpire, 2);
+        adjustConfidence(toEmpire, 2);
         events.push(this._makeEvent(state, 'peace_declared',
           `${toEmpire.name} accepted ${fromEmpire.name}'s peace proposal!`,
           [empireId, targetId]));
@@ -90,6 +96,7 @@ export class DiplomacyEngine {
           [empireId, targetId]));
       }
     } else {
+      adjustConfidence(fromEmpire, -2);
       events.push(this._makeEvent(state, 'proposal_rejected',
         `${toEmpire.name} rejected ${fromEmpire.name}'s ${proposalKind} proposal`,
         [empireId, targetId]));
@@ -118,12 +125,17 @@ export class DiplomacyEngine {
 
     if (wasAllied) {
       state.empires[empireId].reputation = Math.max(0, state.empires[empireId].reputation - 30);
+      adjustConfidence(state.empires[targetId], -8);
+      adjustConfidence(state.empires[empireId], -3);
       events.push(this._makeEvent(state, 'betrayal',
         `${state.empires[empireId].name} BETRAYED their alliance with ${state.empires[targetId].name}!`,
         [empireId, targetId]));
     } else if (wasTrade) {
       state.empires[empireId].reputation = Math.max(0, state.empires[empireId].reputation - 15);
     }
+
+    adjustConfidence(state.empires[empireId], 2);
+    adjustConfidence(state.empires[targetId], -3);
 
     events.push(this._makeEvent(state, 'war_declared',
       `${state.empires[empireId].name} declared WAR on ${state.empires[targetId].name}!`,
@@ -231,6 +243,7 @@ export class DiplomacyEngine {
 
     rel.status = 'neutral';
     state.empires[empireId].reputation = Math.max(0, state.empires[empireId].reputation - 25);
+    adjustConfidence(state.empires[targetId], -5);
 
     events.push(this._makeEvent(state, 'alliance_broken',
       `${state.empires[empireId].name} broke their alliance with ${state.empires[targetId].name}!`,

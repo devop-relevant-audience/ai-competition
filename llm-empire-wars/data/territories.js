@@ -1,8 +1,8 @@
 export const TERRITORY_DATA = {
   france:          { name: 'France',                 resources: { food: 4, production: 4, gold: 3 }, terrain: 'plains' },
-  germany:         { name: 'Germany',                resources: { food: 3, production: 5, gold: 3 }, terrain: 'plains' },
-  spain:           { name: 'Spain',                  resources: { food: 3, production: 3, gold: 2 }, terrain: 'plains' },
-  portugal:        { name: 'Portugal',               resources: { food: 2, production: 2, gold: 2 }, terrain: 'coast' },
+  germany:         { name: 'Germany',                resources: { food: 3, production: 4, gold: 3 }, terrain: 'plains' },
+  spain:           { name: 'Spain',                  resources: { food: 4, production: 3, gold: 2 }, terrain: 'plains' },
+  portugal:        { name: 'Portugal',               resources: { food: 2, production: 2, gold: 3 }, terrain: 'coast' },
   italy:           { name: 'Italy',                  resources: { food: 3, production: 4, gold: 3 }, terrain: 'coast' },
   united_kingdom:  { name: 'United Kingdom',         resources: { food: 3, production: 4, gold: 4 }, terrain: 'coast' },
   ireland:         { name: 'Ireland',                resources: { food: 3, production: 2, gold: 1 }, terrain: 'coast' },
@@ -19,8 +19,8 @@ export const TERRITORY_DATA = {
   bulgaria:        { name: 'Bulgaria',               resources: { food: 2, production: 2, gold: 1 }, terrain: 'forest' },
   greece:          { name: 'Greece',                 resources: { food: 2, production: 2, gold: 3 }, terrain: 'coast' },
   denmark:         { name: 'Denmark',                resources: { food: 2, production: 2, gold: 3 }, terrain: 'coast' },
-  sweden:          { name: 'Sweden',                 resources: { food: 2, production: 3, gold: 2 }, terrain: 'forest' },
-  norway:          { name: 'Norway',                 resources: { food: 1, production: 2, gold: 4 }, terrain: 'mountains' },
+  sweden:          { name: 'Sweden',                 resources: { food: 3, production: 3, gold: 2 }, terrain: 'forest' },
+  norway:          { name: 'Norway',                 resources: { food: 2, production: 2, gold: 4 }, terrain: 'mountains' },
   finland:         { name: 'Finland',                resources: { food: 2, production: 3, gold: 2 }, terrain: 'forest' },
   estonia:         { name: 'Estonia',                resources: { food: 1, production: 2, gold: 1 }, terrain: 'forest' },
   latvia:          { name: 'Latvia',                 resources: { food: 2, production: 2, gold: 1 }, terrain: 'forest' },
@@ -76,6 +76,13 @@ export const ADJACENCY = {
   slovenia:        ['italy', 'austria', 'hungary', 'croatia'],
   moldova:         ['romania', 'ukraine'],
   turkey:          ['bulgaria', 'greece'],
+};
+
+export const BUILDING_DEFS = {
+  farm:     { cost: 8,  label: 'Farm',     effect: 'food +2' },
+  market:   { cost: 10, label: 'Market',   effect: 'gold +2' },
+  barracks: { cost: 8,  label: 'Barracks', effect: 'production +2 (recruit cap +1)' },
+  fortress: { cost: 12, label: 'Fortress', effect: 'defense +0.3' },
 };
 
 export const TERRAIN_MODIFIERS = {

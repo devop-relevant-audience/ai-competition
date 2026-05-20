@@ -1,4 +1,5 @@
 import { getEmpireTerritories, getEmpireArmies, getRelation } from '../engine/GameState.js';
+import { BUILDING_DEFS } from '../data/territories.js';
 
 export class EmpireStats {
   constructor(container) {
@@ -11,7 +12,8 @@ export class EmpireStats {
       const territories = getEmpireTerritories(gameState, e.id);
       const armies = getEmpireArmies(gameState, e.id);
       const totalUnits = armies.reduce((s, a) => s + a.size, 0);
-      return { empire: e, territoryCount: territories.length, totalUnits, armyCount: armies.length };
+      const totalFood = territories.reduce((s, t) => s + t.resources.food + (t.buildings?.farm ? 2 : 0), 0);
+      return { empire: e, territoryCount: territories.length, totalUnits, armyCount: armies.length, totalFood };
     }).sort((a, b) => b.territoryCount - a.territoryCount);
 
     const maxTerritories = stats[0]?.territoryCount || 0;
@@ -41,10 +43,22 @@ export class EmpireStats {
           <div class="empire-stat-metrics">
             <span title="Territories">🏰 ${s.territoryCount}</span>
             <span title="Army units">⚔️ ${s.totalUnits}</span>
+            <span title="Food">🌾 ${s.totalFood}</span>
             <span title="Treasury">💰 ${e.treasury}</span>
             <span title="Reputation">⭐ ${e.reputation}</span>
+            <span title="Confidence">${this._confidenceIcon(e.confidence)} ${e.confidence}</span>
           </div>
         </div>`;
     }).join('');
+  }
+
+  _confidenceIcon(confidence) {
+    if (confidence <= 15) return '😰';
+    if (confidence <= 30) return '😟';
+    if (confidence <= 45) return '😐';
+    if (confidence <= 55) return '🙂';
+    if (confidence <= 70) return '😎';
+    if (confidence <= 85) return '💪';
+    return '👑';
   }
 }

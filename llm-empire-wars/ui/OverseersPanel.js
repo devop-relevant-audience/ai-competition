@@ -17,6 +17,7 @@ export class OverseersPanel {
       callbacks.onAdvance,
       callbacks.onToggleAuto,
       callbacks.saveCallbacks || {},
+      callbacks.extraCallbacks || {},
     );
 
     this._bindEvents();
@@ -138,6 +139,10 @@ export class OverseersPanel {
 
   getAutoDelay() {
     return this.turnControls.getDelay();
+  }
+
+  setHistoryView(active, turnNumber, maxTurn) {
+    this.turnControls.setHistoryView(active, turnNumber, maxTurn);
   }
 
   get isAutoPlay() {

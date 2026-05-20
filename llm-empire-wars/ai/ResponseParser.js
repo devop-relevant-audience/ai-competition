@@ -1,8 +1,13 @@
 import { ADJACENCY } from '../data/territories.js';
 
+import { BUILDING_DEFS } from '../data/territories.js';
+
 const ACTION_SCHEMA = {
   move_army:         { required: ['army_id', 'to'] },
   recruit_units:     { required: ['territory_id', 'amount'] },
+  build:             { required: ['territory_id', 'building'] },
+  hire_mercenaries:  { required: ['territory_id', 'amount'] },
+  buy_food:          { required: ['amount'] },
   declare_war:       { required: ['target_empire_id'] },
   propose_peace:     { required: ['target_empire_id'] },
   propose_trade:     { required: ['target_empire_id'] },
@@ -122,6 +127,12 @@ export class ResponseParser {
         return this._coerceMoveArmy(action, empireId, gameState);
       case 'recruit_units':
         return this._coerceRecruit(action, empireId, gameState);
+      case 'build':
+        return this._coerceBuild(action, empireId, gameState);
+      case 'hire_mercenaries':
+        return this._coerceHireMercenaries(action, empireId, gameState);
+      case 'buy_food':
+        return this._coerceBuyFood(action, empireId, gameState);
       case 'declare_war':
       case 'propose_peace':
       case 'propose_trade':
@@ -177,6 +188,39 @@ export class ResponseParser {
     if (amount <= 0) return null;
 
     return { ...action, territory_id: tid, amount };
+  }
+
+  _coerceBuild(action, empireId, gameState) {
+    let tid = this._resolveTerritoryId(action.territory_id, gameState);
+
+    if (!tid || !gameState.territories[tid] || gameState.territories[tid].ownerId !== empireId) {
+      const myTerritories = Object.values(gameState.territories).filter(t => t.ownerId === empireId);
+      if (myTerritories.length === 0) return null;
+      tid = myTerritories[0].id;
+    }
+
+    const building = String(action.building || '').toLowerCase();
+    if (!BUILDING_DEFS[building]) return null;
+
+    return { ...action, territory_id: tid, building };
+  }
+
+  _coerceHireMercenaries(action, empireId, gameState) {
+    let tid = this._resolveTerritoryId(action.territory_id, gameState);
+
+    if (!tid || !gameState.territories[tid] || gameState.territories[tid].ownerId !== empireId) {
+      const myTerritories = Object.values(gameState.territories).filter(t => t.ownerId === empireId);
+      if (myTerritories.length === 0) return null;
+      tid = myTerritories[0].id;
+    }
+
+    const amount = Math.min(Math.max(1, parseInt(action.amount, 10) || 1), 3);
+    return { ...action, territory_id: tid, amount };
+  }
+
+  _coerceBuyFood(action, empireId, gameState) {
+    const amount = Math.min(Math.max(1, parseInt(action.amount, 10) || 1), 5);
+    return { ...action, amount };
   }
 
   _coerceEmpireTarget(action, empireId, gameState) {
@@ -299,10 +343,16 @@ export class ResponseParser {
       }
     }
 
-    if (action.type === 'recruit_units') {
+    if (action.type === 'recruit_units' || action.type === 'hire_mercenaries' || action.type === 'buy_food') {
       action.amount = parseInt(action.amount, 10);
       if (isNaN(action.amount) || action.amount < 1) {
-        return { valid: false, error: 'recruit_units: amount must be >= 1' };
+        return { valid: false, error: `${action.type}: amount must be >= 1` };
+      }
+    }
+
+    if (action.type === 'build') {
+      if (!BUILDING_DEFS[action.building]) {
+        return { valid: false, error: `build: building must be one of ${Object.keys(BUILDING_DEFS).join(', ')}` };
       }
     }
 

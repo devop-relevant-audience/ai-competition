@@ -6,7 +6,7 @@ const SPEED_MAP = {
 };
 
 export class TurnControls {
-  constructor(container, onAdvance, onToggleAuto, saveCallbacks = {}) {
+  constructor(container, onAdvance, onToggleAuto, saveCallbacks = {}, extraCallbacks = {}) {
     this.container = container;
     this.onAdvance = onAdvance;
     this.onToggleAuto = onToggleAuto;
@@ -14,9 +14,13 @@ export class TurnControls {
     this.onLoad = saveCallbacks.onLoad || (() => {});
     this.onExport = saveCallbacks.onExport || (() => {});
     this.onImport = saveCallbacks.onImport || (() => {});
+    this.onEditDiplomacy = extraCallbacks.onEditDiplomacy || (() => {});
+    this.onHistorySeek = extraCallbacks.onHistorySeek || (() => {});
+    this.onReturnToLive = extraCallbacks.onReturnToLive || (() => {});
     this.autoPlay = false;
     this.speed = 2;
     this.isProcessing = false;
+    this.historyViewActive = false;
     this._render();
   }
 
@@ -42,6 +46,14 @@ export class TurnControls {
           Import
           <input type="file" id="file-import" accept=".json" hidden />
         </label>
+        <button class="ctrl-btn ctrl-btn-diplo" id="btn-edit-diplomacy" title="Edit Empire Relations">Diplomacy</button>
+      </div>
+      <div class="history-slider hidden" id="history-slider-wrap">
+        <div class="history-slider-row">
+          <span class="history-slider-label" id="history-turn-label">Turn 1 / 1</span>
+          <input type="range" min="1" max="1" value="1" id="history-slider" />
+          <button class="ctrl-btn ctrl-btn-live hidden" id="btn-return-live">◉ Live</button>
+        </div>
       </div>
     `;
 
@@ -78,6 +90,21 @@ export class TurnControls {
         e.target.value = '';
       }
     });
+    this.container.querySelector('#btn-edit-diplomacy').addEventListener('click', () => this.onEditDiplomacy());
+
+    this.historySlider = this.container.querySelector('#history-slider');
+    this.historySliderWrap = this.container.querySelector('#history-slider-wrap');
+    this.historyTurnLabel = this.container.querySelector('#history-turn-label');
+    this.btnReturnLive = this.container.querySelector('#btn-return-live');
+
+    this.historySlider.addEventListener('input', (e) => {
+      const turn = parseInt(e.target.value, 10);
+      this.onHistorySeek(turn);
+    });
+
+    this.btnReturnLive.addEventListener('click', () => {
+      this.onReturnToLive();
+    });
   }
 
   getDelay() {
@@ -87,6 +114,39 @@ export class TurnControls {
   updateState(gameState) {
     this.turnNumber.textContent = `Turn ${gameState.meta.turn}`;
     this.turnLimit.textContent = `/ ${gameState.meta.turnLimit}`;
+
+    if (this.historyViewActive) return;
+
+    const historyLen = gameState.turnHistory ? gameState.turnHistory.length : 0;
+    if (historyLen >= 2) {
+      this.historySliderWrap.classList.remove('hidden');
+      const maxTurn = gameState.meta.turn;
+      this.historySlider.min = 1;
+      this.historySlider.max = maxTurn;
+      this.historySlider.value = maxTurn;
+      this.historyTurnLabel.textContent = `Turn ${maxTurn} / ${maxTurn}`;
+    } else {
+      this.historySliderWrap.classList.add('hidden');
+    }
+  }
+
+  setHistoryView(active, turnNumber, maxTurn) {
+    this.historyViewActive = active;
+    this.historySlider.min = 1;
+    this.historySlider.max = maxTurn;
+    if (active) {
+      this.btnReturnLive.classList.remove('hidden');
+      this.btnAdvance.disabled = true;
+      this.btnAuto.disabled = true;
+      this.historySlider.value = turnNumber;
+      this.historyTurnLabel.textContent = `Turn ${turnNumber} / ${maxTurn}`;
+    } else {
+      this.btnReturnLive.classList.add('hidden');
+      this.btnAdvance.disabled = this.isProcessing;
+      this.btnAuto.disabled = false;
+      this.historySlider.value = maxTurn;
+      this.historyTurnLabel.textContent = `Turn ${maxTurn} / ${maxTurn}`;
+    }
   }
 
   setPhase(phase) {

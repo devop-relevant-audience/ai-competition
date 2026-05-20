@@ -1,5 +1,5 @@
 import { deepClone, getEmpireTerritories, getTotalTerritories, getRelationKey } from './GameState.js';
-import { CombatResolver } from './CombatResolver.js';
+import { CombatResolver, rollBuildingDestruction } from './CombatResolver.js';
 import { DiplomacyEngine } from './DiplomacyEngine.js';
 import { EconomyEngine } from './EconomyEngine.js';
 import { EventSystem } from './EventSystem.js';
@@ -14,21 +14,27 @@ export class GameEngine {
   }
 
   resolveTurn(currentState) {
-    const state = deepClone(currentState);
+    const state = this._cloneStateForResolution(currentState);
     const allActions = state.pendingActions;
     const movements = [];
     let allEvents = [];
 
     const breakActions = {};
     const warActions = {};
+    const buildActions = {};
+    const buyFoodActions = {};
     const recruitActions = {};
+    const mercActions = {};
     const moveActions = {};
     const otherActions = {};
 
     for (const [empireId, actions] of Object.entries(allActions)) {
       breakActions[empireId] = actions.filter(a => a.type === 'break_alliance');
       warActions[empireId] = actions.filter(a => a.type === 'declare_war');
+      buildActions[empireId] = actions.filter(a => a.type === 'build');
+      buyFoodActions[empireId] = actions.filter(a => a.type === 'buy_food');
       recruitActions[empireId] = actions.filter(a => a.type === 'recruit_units');
+      mercActions[empireId] = actions.filter(a => a.type === 'hire_mercenaries');
       moveActions[empireId] = actions.filter(a => a.type === 'move_army');
       otherActions[empireId] = actions.filter(a =>
         ['propose_trade', 'propose_alliance', 'propose_peace', 'send_message', 'espionage'].includes(a.type)
@@ -38,7 +44,10 @@ export class GameEngine {
     allEvents.push(...this.diplomacy.processDiplomaticActions(state, breakActions));
     allEvents.push(...this.diplomacy.processDiplomaticActions(state, warActions));
 
+    allEvents.push(...this.economy.processBuilding(state, buildActions));
+    const foodBonusMap = this.economy.processBuyFood(state, buyFoodActions);
     allEvents.push(...this.economy.processRecruitment(state, recruitActions));
+    allEvents.push(...this.economy.processMercenaries(state, mercActions));
 
     for (const [empireId, actions] of Object.entries(moveActions)) {
       for (const action of actions) {
@@ -53,7 +62,7 @@ export class GameEngine {
     const combatEvents = this.combat.resolve(state);
     allEvents.push(...combatEvents);
 
-    allEvents.push(...this.economy.updateEconomy(state));
+    allEvents.push(...this.economy.updateEconomy(state, foodBonusMap));
 
     const worldEvents = this.events.rollEvents(state);
     allEvents.push(...worldEvents);
@@ -77,12 +86,10 @@ export class GameEngine {
       m.turn >= state.meta.turn - 2
     );
 
-    if (state.turnHistory.length >= 50) {
-      state.turnHistory.shift();
-    }
     state.turnHistory.push({
       turn: state.meta.turn,
-      snapshot: deepClone(currentState),
+      snapshot: this._createLightSnapshot(currentState),
+      events: allEvents,
     });
 
     state.meta.turn += 1;
@@ -109,9 +116,15 @@ export class GameEngine {
       return { success: false };
     }
 
-    const rel = this._getRelationBetweenEmpires(state, empireId, state.territories[to]?.ownerId);
-    if (rel && rel.status === 'alliance' && state.territories[to]?.ownerId) {
-      return { success: false };
+    const toOwner = state.territories[to]?.ownerId;
+    if (toOwner && toOwner !== empireId) {
+      const rel = this._getRelationBetweenEmpires(state, empireId, toOwner);
+      if (!rel || rel.status === 'alliance') {
+        return { success: false };
+      }
+      if (rel.status !== 'war') {
+        return { success: false };
+      }
     }
 
     army.locationId = to;
@@ -139,6 +152,31 @@ export class GameEngine {
       };
     }
 
+    if (toTerritory && toOwner && toOwner !== empireId) {
+      const hasDefenders = Object.values(state.armies).some(
+        a => a.locationId === to && a.empireId === toOwner
+      );
+      if (!hasDefenders) {
+        const previousOwner = state.empires[toOwner];
+        toTerritory.ownerId = empireId;
+        const destroyed = rollBuildingDestruction(toTerritory);
+        let desc = `${empire.name} captured the undefended ${toName} from ${previousOwner?.name || 'unknown'}!`;
+        if (destroyed.length > 0) {
+          desc += ` (Destroyed: ${destroyed.join(', ')})`;
+        }
+        return {
+          success: true,
+          movement: { armyId: army.id, empireId, from, to },
+          event: {
+            turn: state.meta.turn,
+            type: 'territory_captured',
+            description: desc,
+            involvedEmpires: [empireId, toOwner],
+          },
+        };
+      }
+    }
+
     return {
       success: true,
       movement: { armyId: army.id, empireId, from, to },
@@ -155,6 +193,20 @@ export class GameEngine {
     if (!empireA || !empireB || empireA === empireB) return null;
     const key = getRelationKey(empireA, empireB);
     return state.relations[key] || null;
+  }
+
+  _cloneStateForResolution(state) {
+    const history = state.turnHistory;
+    state.turnHistory = [];
+    const cloned = deepClone(state);
+    state.turnHistory = history;
+    cloned.turnHistory = history;
+    return cloned;
+  }
+
+  _createLightSnapshot(state) {
+    const { turnHistory, eventLog, ...rest } = state;
+    return deepClone(rest);
   }
 
   checkWinCondition(state) {

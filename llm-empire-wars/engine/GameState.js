@@ -25,6 +25,7 @@ export function createInitialState(config = {}) {
       colorLight: def.colorLight,
       treasury: 20,
       reputation: 50,
+      confidence: 50,
       isEliminated: false,
     };
   });
@@ -48,6 +49,7 @@ export function createInitialState(config = {}) {
       capital: false,
       resources: { ...data.resources },
       terrain: data.terrain,
+      buildings: {},
     };
   }
 
@@ -61,13 +63,14 @@ export function createInitialState(config = {}) {
   EMPIRE_DEFINITIONS.forEach(def => {
     def.startingTerritories.forEach((tid, i) => {
       const armyId = `army_${def.id}_${i}`;
-      const size = i === 0 ? Math.ceil(def.startingArmySize / 2) : Math.floor(def.startingArmySize / (def.startingTerritories.length - 1 || 1));
+      const size = i === 0 ? 3 : 1;
       armies[armyId] = {
         id: armyId,
         empireId: def.id,
         locationId: tid,
-        size: Math.max(size, 2),
+        size,
         movesRemaining: 1,
+        isMercenary: false,
       };
     });
   });
@@ -93,10 +96,13 @@ export function createInitialState(config = {}) {
   const empireIds = EMPIRE_DEFINITIONS.map(d => d.id);
   for (let i = 0; i < empireIds.length; i++) {
     for (let j = i + 1; j < empireIds.length; j++) {
-      const key = `${empireIds[i]}__${empireIds[j]}`;
+      const key = getRelationKey(empireIds[i], empireIds[j]);
+      const sorted = empireIds[i] < empireIds[j]
+        ? [empireIds[i], empireIds[j]]
+        : [empireIds[j], empireIds[i]];
       relations[key] = {
-        empireA: empireIds[i],
-        empireB: empireIds[j],
+        empireA: sorted[0],
+        empireB: sorted[1],
         status: 'neutral',
         pactExpiry: null,
         tradeValue: 0,
@@ -148,4 +154,8 @@ export function getEmpireArmies(state, empireId) {
 
 export function getTotalTerritories() {
   return Object.keys(TERRITORY_DATA).length;
+}
+
+export function adjustConfidence(empire, delta) {
+  empire.confidence = Math.min(100, Math.max(0, empire.confidence + delta));
 }

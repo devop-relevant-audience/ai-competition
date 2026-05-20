@@ -1,4 +1,18 @@
 import { TERRAIN_MODIFIERS } from '../data/territories.js';
+import { adjustConfidence } from './GameState.js';
+
+export function rollBuildingDestruction(territory) {
+  const destroyed = [];
+  if (!territory.buildings) return destroyed;
+  for (const key of Object.keys(territory.buildings)) {
+    if (!territory.buildings[key]) continue;
+    if (Math.random() < 0.35) {
+      delete territory.buildings[key];
+      destroyed.push(key);
+    }
+  }
+  return destroyed;
+}
 
 export class CombatResolver {
   resolve(state) {
@@ -79,7 +93,8 @@ export class CombatResolver {
         else if (eId === 'neutral') memberNames.push('Neutral garrison');
       }
 
-      const modifier = isDefender ? defenderBonus * capitalBonus : 1.0;
+      const fortressBonus = isDefender && territory.buildings?.fortress ? 0.3 : 0;
+      const modifier = isDefender ? (defenderBonus + fortressBonus) * capitalBonus : 1.0;
       const roll = 0.75 + Math.random() * 0.5;
       const score = totalSize * modifier * roll;
 
@@ -124,6 +139,13 @@ export class CombatResolver {
       territoryId: territory.id,
     });
 
+    for (const eId of winner.empireIds) {
+      if (eId !== 'neutral' && state.empires[eId]) adjustConfidence(state.empires[eId], 5);
+    }
+    for (const eId of loser.empireIds) {
+      if (eId !== 'neutral' && state.empires[eId]) adjustConfidence(state.empires[eId], -5);
+    }
+
     if (loser.totalSize <= 0) {
       loser.armies.forEach(a => { delete state.armies[a.id]; });
 
@@ -132,10 +154,24 @@ export class CombatResolver {
       if (loserOwnsTerritory) {
         territory.ownerId = winner.leaderId === 'neutral' ? null : winner.leaderId;
 
+        const destroyed = rollBuildingDestruction(territory);
+
+        for (const eId of winner.empireIds) {
+          if (eId !== 'neutral' && state.empires[eId]) adjustConfidence(state.empires[eId], 3);
+        }
+        for (const eId of loser.empireIds) {
+          if (eId !== 'neutral' && state.empires[eId]) adjustConfidence(state.empires[eId], -3);
+        }
+
+        let captureDesc = `${winner.name} captured ${territory.name} from ${loser.name}!`;
+        if (destroyed.length > 0) {
+          captureDesc += ` (Destroyed: ${destroyed.join(', ')})`;
+        }
+
         events.push({
           turn: state.meta.turn,
           type: 'territory_captured',
-          description: `${winner.name} captured ${territory.name} from ${loser.name}!`,
+          description: captureDesc,
           involvedEmpires: winner.empireIds.filter(id => id !== 'neutral'),
           territoryId: territory.id,
         });

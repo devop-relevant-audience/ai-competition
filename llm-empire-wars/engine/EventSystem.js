@@ -1,3 +1,5 @@
+import { adjustConfidence } from './GameState.js';
+
 const EVENT_TEMPLATES = [
   {
     type: 'famine',
@@ -106,6 +108,16 @@ export class EventSystem {
     const involvedEmpires = target && state.territories[target]?.ownerId
       ? [state.territories[target].ownerId]
       : [];
+
+    const POSITIVE_EVENTS = ['gold_rush', 'bountiful_harvest'];
+    const NEGATIVE_EVENTS = ['famine', 'plague', 'rebellion', 'storm'];
+    if (involvedEmpires.length > 0) {
+      const empire = state.empires[involvedEmpires[0]];
+      if (empire) {
+        if (POSITIVE_EVENTS.includes(template.type)) adjustConfidence(empire, 2);
+        else if (NEGATIVE_EVENTS.includes(template.type)) adjustConfidence(empire, -2);
+      }
+    }
 
     events.push({
       turn: state.meta.turn,

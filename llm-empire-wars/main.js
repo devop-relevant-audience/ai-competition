@@ -4,6 +4,7 @@ import { AIController } from './ai/AIController.js';
 import { OpenRouterConfig } from './ai/OpenRouterClient.js';
 import { MapController } from './map/MapController.js';
 import { OverseersPanel } from './ui/OverseersPanel.js';
+import { DiplomacyEditor } from './ui/DiplomacyEditor.js';
 import { SaveManager } from './engine/SaveManager.js';
 import { EMPIRE_DEFINITIONS } from './data/empires.js';
 
@@ -15,13 +16,15 @@ class App {
     this.saveManager = new SaveManager();
     this.mapController = null;
     this.panel = null;
+    this.diplomacyEditor = null;
     this.autoTimer = null;
     this.isRunning = false;
 
+    this.viewingHistory = false;
     this._initSetupScreen();
   }
 
-  _initSetupScreen() {
+  async _initSetupScreen() {
     const empireContainer = document.getElementById('setup-empires');
     empireContainer.innerHTML = EMPIRE_DEFINITIONS.map(e => `
       <div class="empire-preview">
@@ -43,8 +46,8 @@ class App {
       startBtn.disabled = false;
     }
 
-    if (this.saveManager.hasAnySave()) {
-      const auto = this.saveManager.loadAutoSave();
+    if (await this.saveManager.hasAnySave()) {
+      const auto = await this.saveManager.loadAutoSave();
       if (auto) {
         continueBtn.classList.remove('hidden');
         continueInfo.classList.remove('hidden');
@@ -92,7 +95,7 @@ class App {
       return;
     }
 
-    const record = this.saveManager.loadAutoSave();
+    const record = await this.saveManager.loadAutoSave();
     if (!record) {
       errorEl.textContent = 'Save data is corrupt or missing.';
       return;
@@ -129,6 +132,17 @@ class App {
         onExport: () => this._exportGame(),
         onImport: (file) => this._importGame(file),
       },
+      extraCallbacks: {
+        onEditDiplomacy: () => this._openDiplomacyEditor(),
+        onHistorySeek: (turn) => this._viewHistoricalTurn(turn),
+        onReturnToLive: () => this._returnToLive(),
+      },
+    });
+
+    this.diplomacyEditor = new DiplomacyEditor((state) => {
+      this.gameState = state;
+      this.mapController.updateState(this.gameState);
+      this.panel.updateState(this.gameState);
     });
 
     this.mapController.updateState(this.gameState);
@@ -138,8 +152,42 @@ class App {
     this._initModalClose();
   }
 
+  _viewHistoricalTurn(turnNumber) {
+    if (!this.gameState || !this.gameState.turnHistory) return;
+
+    if (turnNumber >= this.gameState.meta.turn) {
+      this._returnToLive();
+      return;
+    }
+
+    const entry = this.gameState.turnHistory.find(h => h.turn === turnNumber);
+    if (!entry) return;
+
+    this.viewingHistory = true;
+
+    const historicalState = {
+      ...entry.snapshot,
+      eventLog: entry.events || [],
+      turnHistory: this.gameState.turnHistory,
+    };
+
+    this.panel.setHistoryView(true, turnNumber, this.gameState.meta.turn);
+    this.mapController.updateState(historicalState);
+    this.panel.updateState(historicalState);
+  }
+
+  _returnToLive() {
+    if (!this.viewingHistory) return;
+    this.viewingHistory = false;
+
+    this.mapController.updateState(this.gameState);
+    this.panel.updateState(this.gameState);
+    this.panel.setHistoryView(false, this.gameState.meta.turn, this.gameState.meta.turn);
+    this.panel.setPhase(this.gameState.meta.phase);
+  }
+
   async _advanceTurn() {
-    if (this.isRunning) return;
+    if (this.isRunning || this.viewingHistory) return;
     this.isRunning = true;
 
     try {
@@ -169,7 +217,7 @@ class App {
       this.panel.updateState(this.gameState);
       this.panel.setPhase('awaiting_advance');
 
-      this.saveManager.autoSave(this.gameState);
+      await this.saveManager.autoSave(this.gameState);
 
       const postWin = this.engine.checkWinCondition(this.gameState);
       if (postWin) {
@@ -250,14 +298,14 @@ class App {
     });
   }
 
-  _openSaveModal() {
+  async _openSaveModal() {
     if (this.isRunning) return;
     const modal = document.getElementById('save-load-modal');
     const title = document.getElementById('modal-title');
     const slotsEl = document.getElementById('modal-slots');
 
     title.textContent = 'Save Game';
-    const saves = this.saveManager.listSaves();
+    const saves = await this.saveManager.listSaves();
     const slots = saves.filter(s => s.type === 'slot');
 
     slotsEl.innerHTML = slots.map(s => {
@@ -272,9 +320,9 @@ class App {
     }).join('');
 
     slotsEl.querySelectorAll('[data-save-slot]').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const slot = parseInt(btn.dataset.saveSlot, 10);
-        this.saveManager.saveToSlot(slot, this.gameState);
+        await this.saveManager.saveToSlot(slot, this.gameState);
         modal.classList.add('hidden');
       });
     });
@@ -282,14 +330,14 @@ class App {
     modal.classList.remove('hidden');
   }
 
-  _openLoadModal() {
+  async _openLoadModal() {
     if (this.isRunning) return;
     const modal = document.getElementById('save-load-modal');
     const title = document.getElementById('modal-title');
     const slotsEl = document.getElementById('modal-slots');
 
     title.textContent = 'Load Game';
-    const saves = this.saveManager.listSaves();
+    const saves = await this.saveManager.listSaves();
 
     slotsEl.innerHTML = saves
       .filter(s => s.label !== null)
@@ -308,12 +356,12 @@ class App {
     }
 
     slotsEl.querySelectorAll('[data-load-slot]').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const slot = parseInt(btn.dataset.loadSlot, 10);
         const type = btn.dataset.loadType;
         const record = type === 'autosave'
-          ? this.saveManager.loadAutoSave()
-          : this.saveManager.loadFromSlot(slot);
+          ? await this.saveManager.loadAutoSave()
+          : await this.saveManager.loadFromSlot(slot);
         if (record) {
           this._resumeFromRecord(record);
         }
@@ -337,6 +385,11 @@ class App {
     } catch (err) {
       console.error('Import failed:', err);
     }
+  }
+
+  _openDiplomacyEditor() {
+    if (this.isRunning || !this.gameState) return;
+    this.diplomacyEditor.open(this.gameState);
   }
 }
 
