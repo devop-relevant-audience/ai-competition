@@ -23,6 +23,8 @@
       </div>
       <div class="setup-empires" id="setup-empires"></div>
       <button id="start-game-btn" class="btn-primary" disabled>Start Simulation</button>
+      <button id="continue-game-btn" class="btn-primary btn-continue hidden">Continue Saved Game</button>
+      <span id="continue-save-info" class="continue-save-info hidden"></span>
       <p class="setup-error" id="setup-error"></p>
     </div>
   </div>
@@ -45,14 +47,17 @@
           <h2 class="panel-title">Empires</h2>
           <div id="empire-stats"></div>
         </div>
+        <div class="resize-handle-h panel-resize" data-above="empire-stats-panel" data-below="reasoning-panel"></div>
         <div class="panel-section" id="reasoning-panel">
           <h2 class="panel-title">AI Reasoning</h2>
           <div id="reasoning-log"></div>
         </div>
+        <div class="resize-handle-h panel-resize" data-above="reasoning-panel" data-below="diplomacy-panel"></div>
         <div class="panel-section" id="diplomacy-panel">
           <h2 class="panel-title">Diplomacy</h2>
           <div id="diplomacy-feed"></div>
         </div>
+        <div class="resize-handle-h panel-resize" data-above="diplomacy-panel" data-below="messages-panel"></div>
         <div class="panel-section" id="messages-panel">
           <h2 class="panel-title">Messages</h2>
           <div id="messages-feed"></div>
@@ -66,9 +71,21 @@
     <!-- Bottom Bar -->
     <div class="bottom-bar" id="bottom-bar">
       <div class="turn-controls" id="turn-controls"></div>
-      <div class="event-log-area">
+      <div class="resize-handle-v bottom-resize" id="resize-bottom-split"></div>
+      <div class="event-log-area" id="event-log-area">
         <h3 class="event-log-title">Event Log</h3>
         <div id="event-log"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save/Load Modal -->
+  <div id="save-load-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <h2 id="modal-title">Save Game</h2>
+      <div id="modal-slots"></div>
+      <div class="modal-actions">
+        <button id="modal-close-btn" class="btn-secondary">Close</button>
       </div>
     </div>
   </div>

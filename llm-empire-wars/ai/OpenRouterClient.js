@@ -2,14 +2,24 @@ export const OpenRouterConfig = {
   apiKey: '',
   baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
   model: 'deepseek/deepseek-v4-flash',
- 
 };
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1500;
 
-export async function callAI(systemPrompt, userPrompt) {
+export async function callAI(systemPrompt, userPrompt, options = {}) {
   let lastError = null;
+  const model = options.model || OpenRouterConfig.model;
+
+  const body = {
+    model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    response_format: { type: 'json_object' },
+  };
+  if (options.maxTokens) body.max_tokens = options.maxTokens;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
@@ -21,13 +31,7 @@ export async function callAI(systemPrompt, userPrompt) {
           'HTTP-Referer': window.location.href,
           'X-Title': 'LLM Empire Wars',
         },
-        body: JSON.stringify({
-          model: OpenRouterConfig.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-        }),
+        body: JSON.stringify(body),
       });
 
       if (response.status === 429) {
@@ -37,8 +41,8 @@ export async function callAI(systemPrompt, userPrompt) {
       }
 
       if (!response.ok) {
-        const body = await response.text();
-        throw new Error(`OpenRouter API error ${response.status}: ${body}`);
+        const respBody = await response.text();
+        throw new Error(`OpenRouter API error ${response.status}: ${respBody}`);
       }
 
       const data = await response.json();

@@ -16,6 +16,7 @@ export class OverseersPanel {
       document.getElementById('turn-controls'),
       callbacks.onAdvance,
       callbacks.onToggleAuto,
+      callbacks.saveCallbacks || {},
     );
 
     this._bindEvents();
@@ -57,6 +58,37 @@ export class OverseersPanel {
         const current = bottomBar.offsetHeight;
         const next = Math.max(100, Math.min(400, current - delta));
         bottomBar.style.height = next + 'px';
+      });
+    }
+
+    document.querySelectorAll('.panel-resize').forEach(handle => {
+      const aboveId = handle.dataset.above;
+      const belowId = handle.dataset.below;
+      const above = document.getElementById(aboveId);
+      const below = document.getElementById(belowId);
+      if (!above || !below) return;
+
+      this._makeDraggable(handle, 'row', (delta) => {
+        const aboveH = above.offsetHeight + delta;
+        const belowH = below.offsetHeight - delta;
+        if (aboveH < 50 || belowH < 50) return;
+        above.style.flex = 'none';
+        below.style.flex = 'none';
+        above.style.height = aboveH + 'px';
+        below.style.height = belowH + 'px';
+      });
+    });
+
+    const bottomSplitHandle = document.getElementById('resize-bottom-split');
+    const turnControls = document.getElementById('turn-controls');
+    const eventLogArea = document.getElementById('event-log-area');
+
+    if (bottomSplitHandle && turnControls && eventLogArea) {
+      this._makeDraggable(bottomSplitHandle, 'col', (delta) => {
+        const current = turnControls.offsetWidth;
+        const next = Math.max(260, Math.min(600, current + delta));
+        turnControls.style.minWidth = next + 'px';
+        turnControls.style.width = next + 'px';
       });
     }
   }

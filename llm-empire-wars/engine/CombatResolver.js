@@ -26,7 +26,8 @@ export class CombatResolver {
       const empireIds = new Set(armies.map(a => a.empireId));
       if (empireIds.size < 2) continue;
 
-      const atWar = this._anyAtWar(Array.from(empireIds), state);
+      const hasNeutral = empireIds.has('neutral');
+      const atWar = hasNeutral || this._anyAtWar(Array.from(empireIds), state);
       if (!atWar) continue;
 
       contested[tid] = {};
@@ -59,67 +60,85 @@ export class CombatResolver {
     const capitalBonus = territory.capital ? TERRAIN_MODIFIERS.capital.defense : 1.0;
     const isDefenderTerritory = territory.ownerId;
 
-    const combatants = [];
-    for (const [empireId, armies] of Object.entries(armyGroups)) {
-      const totalSize = armies.reduce((sum, a) => sum + a.size, 0);
-      const isDefender = empireId === isDefenderTerritory;
+    const empireIds = Object.keys(armyGroups);
+    const coalitions = this._buildCoalitions(empireIds, state);
+
+    const coalitionCombatants = coalitions.map(coalition => {
+      let allArmies = [];
+      let totalSize = 0;
+      const memberNames = [];
+      let isDefender = false;
+
+      for (const eId of coalition) {
+        const armies = armyGroups[eId] || [];
+        allArmies = allArmies.concat(armies);
+        totalSize += armies.reduce((sum, a) => sum + a.size, 0);
+        if (eId === isDefenderTerritory) isDefender = true;
+        const emp = state.empires[eId];
+        if (emp) memberNames.push(emp.name);
+        else if (eId === 'neutral') memberNames.push('Neutral garrison');
+      }
+
       const modifier = isDefender ? defenderBonus * capitalBonus : 1.0;
       const roll = 0.75 + Math.random() * 0.5;
       const score = totalSize * modifier * roll;
 
-      combatants.push({ empireId, armies, totalSize, score, isDefender });
-    }
+      return {
+        empireIds: coalition,
+        leaderId: coalition[0],
+        armies: allArmies,
+        totalSize,
+        score,
+        isDefender,
+        name: memberNames.join(' & '),
+      };
+    });
 
-    const warPairs = this._getWarPairs(Object.keys(armyGroups), state);
+    const atWar = coalitionCombatants.length >= 2 && this._coalitionsAtWar(coalitions, state);
+    if (!atWar) return events;
 
-    combatants.sort((a, b) => b.score - a.score);
+    coalitionCombatants.sort((a, b) => b.score - a.score);
+    const winner = coalitionCombatants[0];
+    const loser = coalitionCombatants[1];
 
-    for (const pair of warPairs) {
-      const a = combatants.find(c => c.empireId === pair[0]);
-      const b = combatants.find(c => c.empireId === pair[1]);
-      if (!a || !b) continue;
+    const loserMinLoss = Math.max(1, Math.floor(winner.totalSize * 0.3));
+    const loserMaxLoss = winner.totalSize;
+    const loserLoss = loserMinLoss + Math.floor(Math.random() * (loserMaxLoss - loserMinLoss + 1));
 
-      const winner = a.score >= b.score ? a : b;
-      const loser = a.score >= b.score ? b : a;
+    const winnerMaxLoss = Math.max(1, Math.floor(loser.totalSize * 0.5));
+    const winnerLoss = Math.floor(Math.random() * (winnerMaxLoss + 1));
 
-      const loserMinLoss = Math.max(1, Math.floor(winner.totalSize * 0.3));
-      const loserMaxLoss = winner.totalSize;
-      const loserLoss = loserMinLoss + Math.floor(Math.random() * (loserMaxLoss - loserMinLoss + 1));
+    this._applyLosses(loser.armies, loserLoss, state);
+    this._applyLosses(winner.armies, winnerLoss, state);
 
-      const winnerMaxLoss = Math.max(1, Math.floor(loser.totalSize * 0.5));
-      const winnerLoss = Math.floor(Math.random() * (winnerMaxLoss + 1));
+    loser.totalSize = loser.armies.reduce((s, a) => s + (state.armies[a.id]?.size || 0), 0);
+    winner.totalSize = winner.armies.reduce((s, a) => s + (state.armies[a.id]?.size || 0), 0);
 
-      this._applyLosses(loser.armies, loserLoss, state);
-      this._applyLosses(winner.armies, winnerLoss, state);
+    const allInvolved = [...winner.empireIds, ...loser.empireIds].filter(id => id !== 'neutral');
 
-      loser.totalSize = loser.armies.reduce((s, a) => s + (state.armies[a.id]?.size || 0), 0);
-      winner.totalSize = winner.armies.reduce((s, a) => s + (state.armies[a.id]?.size || 0), 0);
+    events.push({
+      turn: state.meta.turn,
+      type: 'battle',
+      description: `${winner.name} defeated ${loser.name} in ${territory.name}! (Lost ${winnerLoss} units, inflicted ${loserLoss} losses)`,
+      involvedEmpires: allInvolved,
+      territoryId: territory.id,
+    });
 
-      const winnerEmpire = state.empires[winner.empireId];
-      const loserEmpire = state.empires[loser.empireId];
+    if (loser.totalSize <= 0) {
+      loser.armies.forEach(a => { delete state.armies[a.id]; });
 
-      events.push({
-        turn: state.meta.turn,
-        type: 'battle',
-        description: `${winnerEmpire.name} defeated ${loserEmpire.name} in ${territory.name}! (Lost ${winnerLoss} units, inflicted ${loserLoss} losses)`,
-        involvedEmpires: [winner.empireId, loser.empireId],
-        territoryId: territory.id,
-      });
+      const loserHasNeutral = loser.empireIds.includes('neutral');
+      const loserOwnsTerritory = loser.empireIds.includes(territory.ownerId) || (loserHasNeutral && !territory.ownerId);
+      if (loserOwnsTerritory) {
+        territory.ownerId = winner.leaderId === 'neutral' ? null : winner.leaderId;
 
-      if (loser.totalSize <= 0) {
-        loser.armies.forEach(a => { delete state.armies[a.id]; });
-
-        if (territory.ownerId === loser.empireId) {
-          territory.ownerId = winner.empireId;
-
-          events.push({
-            turn: state.meta.turn,
-            type: 'territory_captured',
-            description: `${winnerEmpire.name} captured ${territory.name} from ${loserEmpire.name}!`,
-            involvedEmpires: [winner.empireId, loser.empireId],
-            territoryId: territory.id,
-          });
-        }
+        events.push({
+          turn: state.meta.turn,
+          type: 'territory_captured',
+          description: `${winner.name} captured ${territory.name} from ${loser.name}!`,
+          involvedEmpires: winner.empireIds.filter(id => id !== 'neutral'),
+          territoryId: territory.id,
+        });
       }
     }
 
@@ -130,10 +149,57 @@ export class CombatResolver {
     return events;
   }
 
+  _buildCoalitions(empireIds, state) {
+    const visited = new Set();
+    const coalitions = [];
+
+    for (const eId of empireIds) {
+      if (visited.has(eId)) continue;
+      const coalition = [eId];
+      visited.add(eId);
+
+      for (const otherId of empireIds) {
+        if (visited.has(otherId)) continue;
+        if (eId === 'neutral' || otherId === 'neutral') continue;
+
+        const key = eId < otherId ? `${eId}__${otherId}` : `${otherId}__${eId}`;
+        const rel = state.relations[key];
+        if (rel && rel.status === 'alliance') {
+          coalition.push(otherId);
+          visited.add(otherId);
+        }
+      }
+
+      coalitions.push(coalition);
+    }
+
+    return coalitions;
+  }
+
+  _coalitionsAtWar(coalitions, state) {
+    for (let i = 0; i < coalitions.length; i++) {
+      for (let j = i + 1; j < coalitions.length; j++) {
+        for (const eA of coalitions[i]) {
+          for (const eB of coalitions[j]) {
+            if (eA === 'neutral' || eB === 'neutral') return true;
+            const key = eA < eB ? `${eA}__${eB}` : `${eB}__${eA}`;
+            const rel = state.relations[key];
+            if (rel && rel.status === 'war') return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
   _getWarPairs(empireIds, state) {
     const pairs = [];
     for (let i = 0; i < empireIds.length; i++) {
       for (let j = i + 1; j < empireIds.length; j++) {
+        if (empireIds[i] === 'neutral' || empireIds[j] === 'neutral') {
+          pairs.push([empireIds[i], empireIds[j]]);
+          continue;
+        }
         const key = empireIds[i] < empireIds[j]
           ? `${empireIds[i]}__${empireIds[j]}`
           : `${empireIds[j]}__${empireIds[i]}`;

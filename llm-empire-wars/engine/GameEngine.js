@@ -19,12 +19,6 @@ export class GameEngine {
     const movements = [];
     let allEvents = [];
 
-    const diploResponseEvents = this.diplomacy.resolveIncomingProposals(state);
-    allEvents.push(...diploResponseEvents);
-
-    const matchingEvents = this.diplomacy.resolveMatchingProposals(state, allActions);
-    allEvents.push(...matchingEvents);
-
     const breakActions = {};
     const warActions = {};
     const recruitActions = {};
@@ -70,7 +64,9 @@ export class GameEngine {
 
     allEvents.push(...this.economy.checkElimination(state));
 
-    Object.values(state.armies).forEach(a => { a.movesRemaining = 1; });
+    Object.values(state.armies).forEach(a => {
+      a.movesRemaining = a.empireId === 'neutral' ? 0 : 1;
+    });
 
     state.eventLog.push(...allEvents);
     if (state.eventLog.length > 200) {
@@ -125,7 +121,11 @@ export class GameEngine {
     const toTerritory = state.territories[to];
     const toName = toTerritory ? toTerritory.name : to;
 
-    if (toTerritory && !toTerritory.ownerId) {
+    const neutralGarrison = Object.values(state.armies).find(
+      a => a.locationId === to && a.empireId === 'neutral'
+    );
+
+    if (toTerritory && !toTerritory.ownerId && !neutralGarrison) {
       toTerritory.ownerId = empireId;
       return {
         success: true,

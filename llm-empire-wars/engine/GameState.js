@@ -72,6 +72,23 @@ export function createInitialState(config = {}) {
     });
   });
 
+  const ownedTerritoryIds = new Set();
+  EMPIRE_DEFINITIONS.forEach(def => {
+    def.startingTerritories.forEach(tid => ownedTerritoryIds.add(tid));
+  });
+  for (const tid of Object.keys(TERRITORY_DATA)) {
+    if (!ownedTerritoryIds.has(tid)) {
+      const armyId = `army_neutral_${tid}`;
+      armies[armyId] = {
+        id: armyId,
+        empireId: 'neutral',
+        locationId: tid,
+        size: 1,
+        movesRemaining: 0,
+      };
+    }
+  }
+
   const relations = {};
   const empireIds = EMPIRE_DEFINITIONS.map(d => d.id);
   for (let i = 0; i < empireIds.length; i++) {

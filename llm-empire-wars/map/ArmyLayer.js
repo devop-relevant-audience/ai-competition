@@ -25,14 +25,16 @@ export class ArmyLayer {
 
       armies.forEach((army, idx) => {
         const empire = gameState.empires[army.empireId];
-        if (!empire) return;
+        const isNeutral = army.empireId === 'neutral';
+        if (!empire && !isNeutral) return;
 
+        const color = isNeutral ? '#666' : empire.color;
         const offset = armies.length > 1 ? (idx - (armies.length - 1) / 2) * 0.5 : 0;
         const pos = [centroid[0] + offset * 0.3, centroid[1] + offset * 0.5];
 
         const icon = L.divIcon({
           className: '',
-          html: `<div class="army-marker" style="background: ${empire.color}">${army.size}</div>`,
+          html: `<div class="army-marker${isNeutral ? ' neutral-garrison' : ''}" style="background: ${color}">${army.size}</div>`,
           iconSize: [28, 28],
           iconAnchor: [14, 14],
         });

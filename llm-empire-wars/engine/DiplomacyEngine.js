@@ -12,13 +12,13 @@ export class DiplomacyEngine {
             events.push(...this._declareWar(state, empireId, action));
             break;
           case 'propose_peace':
-            events.push(...this._proposePeace(state, empireId, action));
+            events.push(...this._resolveProposal(state, empireId, action, 'peace'));
             break;
           case 'propose_trade':
-            events.push(...this._proposeTrade(state, empireId, action));
+            events.push(...this._resolveProposal(state, empireId, action, 'trade'));
             break;
           case 'propose_alliance':
-            events.push(...this._proposeAlliance(state, empireId, action));
+            events.push(...this._resolveProposal(state, empireId, action, 'alliance'));
             break;
           case 'break_alliance':
             events.push(...this._breakAlliance(state, empireId, action));
@@ -33,117 +33,6 @@ export class DiplomacyEngine {
     return events;
   }
 
-  resolveIncomingProposals(state) {
-    const events = [];
-    const pending = state.diplomacyQueue.filter(m => m.status === 'pending');
-
-    for (const msg of pending) {
-      const responderActions = state.pendingActions[msg.toEmpireId] || [];
-
-      const accepted = responderActions.some(a =>
-        a.type === 'accept_proposal' && a.target_empire_id === msg.fromEmpireId
-      );
-
-      const rejected = responderActions.some(a =>
-        a.type === 'reject_proposal' && a.target_empire_id === msg.fromEmpireId
-      );
-
-      const counterProposal = responderActions.some(a =>
-        a.type === msg.type && a.target_empire_id === msg.fromEmpireId
-      );
-
-      if (rejected) {
-        msg.status = 'rejected';
-        events.push(this._makeEvent(state, 'proposal_rejected',
-          `${state.empires[msg.toEmpireId].name} rejected ${state.empires[msg.fromEmpireId].name}'s ${msg.type.replace('propose_', '')} proposal`,
-          [msg.fromEmpireId, msg.toEmpireId]));
-        continue;
-      }
-
-      if (!accepted && !counterProposal) {
-        msg.status = 'ignored';
-        continue;
-      }
-
-      msg.status = 'accepted';
-      const key = getRelationKey(msg.fromEmpireId, msg.toEmpireId);
-      const rel = state.relations[key];
-
-      if (rel) {
-        if (msg.type === 'propose_trade' && rel.status === 'neutral') {
-          rel.status = 'trade';
-          rel.tradeValue = 2;
-          events.push(this._makeEvent(state, 'trade_established',
-            `${state.empires[msg.fromEmpireId].name} and ${state.empires[msg.toEmpireId].name} established a trade agreement!`,
-            [msg.fromEmpireId, msg.toEmpireId]));
-        } else if (msg.type === 'propose_alliance' && (rel.status === 'trade' || rel.status === 'neutral')) {
-          rel.status = 'alliance';
-          events.push(this._makeEvent(state, 'alliance_formed',
-            `${state.empires[msg.fromEmpireId].name} and ${state.empires[msg.toEmpireId].name} formed an alliance!`,
-            [msg.fromEmpireId, msg.toEmpireId]));
-        } else if (msg.type === 'propose_peace' && rel.status === 'war') {
-          rel.status = 'neutral';
-          rel.peaceCooldownUntil = state.meta.turn + 3;
-          events.push(this._makeEvent(state, 'peace_declared',
-            `${state.empires[msg.fromEmpireId].name} and ${state.empires[msg.toEmpireId].name} declared peace!`,
-            [msg.fromEmpireId, msg.toEmpireId]));
-        }
-      }
-    }
-
-    return events;
-  }
-
-  resolveMatchingProposals(state, allActions) {
-    const events = [];
-    const proposalTypes = ['propose_trade', 'propose_alliance', 'propose_peace'];
-    const resolved = new Set();
-
-    for (const [empireA, actionsA] of Object.entries(allActions)) {
-      for (const actionA of actionsA) {
-        if (!proposalTypes.includes(actionA.type)) continue;
-        const empireB = actionA.target_empire_id;
-        const pairKey = getRelationKey(empireA, empireB) + ':' + actionA.type;
-        if (resolved.has(pairKey)) continue;
-
-        const actionsB = allActions[empireB] || [];
-        const match = actionsB.find(ab =>
-          ab.type === actionA.type && ab.target_empire_id === empireA
-        );
-        if (!match) continue;
-
-        resolved.add(pairKey);
-        actionA._resolved = true;
-        match._resolved = true;
-
-        const key = getRelationKey(empireA, empireB);
-        const rel = state.relations[key];
-        if (!rel) continue;
-
-        if (actionA.type === 'propose_trade' && rel.status === 'neutral') {
-          rel.status = 'trade';
-          rel.tradeValue = 2;
-          events.push(this._makeEvent(state, 'trade_established',
-            `${state.empires[empireA].name} and ${state.empires[empireB].name} mutually agreed to a trade agreement!`,
-            [empireA, empireB]));
-        } else if (actionA.type === 'propose_alliance' && (rel.status === 'trade' || rel.status === 'neutral')) {
-          rel.status = 'alliance';
-          events.push(this._makeEvent(state, 'alliance_formed',
-            `${state.empires[empireA].name} and ${state.empires[empireB].name} mutually formed an alliance!`,
-            [empireA, empireB]));
-        } else if (actionA.type === 'propose_peace' && rel.status === 'war') {
-          rel.status = 'neutral';
-          rel.peaceCooldownUntil = state.meta.turn + 3;
-          events.push(this._makeEvent(state, 'peace_declared',
-            `${state.empires[empireA].name} and ${state.empires[empireB].name} mutually declared peace!`,
-            [empireA, empireB]));
-        }
-      }
-    }
-
-    return events;
-  }
-
   updateReputations(state) {
     for (const rel of Object.values(state.relations)) {
       if (rel.status === 'trade' || rel.status === 'alliance') {
@@ -151,6 +40,62 @@ export class DiplomacyEngine {
         state.empires[rel.empireB].reputation = Math.min(100, state.empires[rel.empireB].reputation + 2);
       }
     }
+  }
+
+  _resolveProposal(state, empireId, action, proposalKind) {
+    const events = [];
+    const targetId = action.target_empire_id;
+    const fromEmpire = state.empires[empireId];
+    const toEmpire = state.empires[targetId];
+    if (!fromEmpire || !toEmpire) return events;
+
+    const key = getRelationKey(empireId, targetId);
+    const rel = state.relations[key];
+    if (!rel) return events;
+
+    const status = action._accepted ? 'accepted' : 'rejected';
+    const msg = {
+      id: `prop_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      fromEmpireId: empireId,
+      toEmpireId: targetId,
+      type: action.type,
+      message: action._decisionReason || `${fromEmpire.name} proposed ${proposalKind} — ${status}`,
+      turn: state.meta.turn,
+      status,
+    };
+    state.diplomacyQueue.push(msg);
+
+    if (action._accepted) {
+      if (proposalKind === 'trade' && rel.status === 'neutral') {
+        rel.status = 'trade';
+        rel.tradeValue = 2;
+        events.push(this._makeEvent(state, 'trade_established',
+          `${toEmpire.name} accepted ${fromEmpire.name}'s trade proposal!`,
+          [empireId, targetId]));
+      } else if (proposalKind === 'alliance' && (rel.status === 'trade' || rel.status === 'neutral')) {
+        rel.status = 'alliance';
+        events.push(this._makeEvent(state, 'alliance_formed',
+          `${toEmpire.name} accepted ${fromEmpire.name}'s alliance proposal!`,
+          [empireId, targetId]));
+        events.push(...this._inheritWars(state, empireId, targetId));
+      } else if (proposalKind === 'peace' && rel.status === 'war') {
+        rel.status = 'neutral';
+        rel.peaceCooldownUntil = state.meta.turn + 3;
+        events.push(this._makeEvent(state, 'peace_declared',
+          `${toEmpire.name} accepted ${fromEmpire.name}'s peace proposal!`,
+          [empireId, targetId]));
+      } else {
+        events.push(this._makeEvent(state, action.type,
+          `${fromEmpire.name} proposed ${proposalKind} to ${toEmpire.name} (already in effect or invalid)`,
+          [empireId, targetId]));
+      }
+    } else {
+      events.push(this._makeEvent(state, 'proposal_rejected',
+        `${toEmpire.name} rejected ${fromEmpire.name}'s ${proposalKind} proposal`,
+        [empireId, targetId]));
+    }
+
+    return events;
   }
 
   _declareWar(state, empireId, action) {
@@ -184,22 +129,97 @@ export class DiplomacyEngine {
       `${state.empires[empireId].name} declared WAR on ${state.empires[targetId].name}!`,
       [empireId, targetId]));
 
+    events.push(...this._callAlliesToWar(state, empireId, targetId));
+
     return events;
   }
 
-  _proposePeace(state, empireId, action) {
-    return this._queueProposal(state, empireId, action.target_empire_id, 'propose_peace',
-      `${state.empires[empireId].name} proposes peace to ${state.empires[action.target_empire_id].name}`);
+  _inheritWars(state, empireA, empireB) {
+    const events = [];
+
+    const getWars = (eId) => {
+      const enemies = [];
+      for (const rel of Object.values(state.relations)) {
+        if (rel.status !== 'war') continue;
+        if (rel.empireA === eId) enemies.push(rel.empireB);
+        else if (rel.empireB === eId) enemies.push(rel.empireA);
+      }
+      return enemies;
+    };
+
+    for (const enemyId of getWars(empireA)) {
+      if (enemyId === empireB) continue;
+      const key = getRelationKey(empireB, enemyId);
+      const rel = state.relations[key];
+      if (!rel || rel.status === 'war') continue;
+      rel.status = 'war';
+      rel.tradeValue = 0;
+      rel.pactExpiry = null;
+      events.push(this._makeEvent(state, 'war_declared',
+        `${state.empires[empireB].name} enters war against ${state.empires[enemyId].name} — allied with ${state.empires[empireA].name}!`,
+        [empireB, enemyId, empireA]));
+    }
+
+    for (const enemyId of getWars(empireB)) {
+      if (enemyId === empireA) continue;
+      const key = getRelationKey(empireA, enemyId);
+      const rel = state.relations[key];
+      if (!rel || rel.status === 'war') continue;
+      rel.status = 'war';
+      rel.tradeValue = 0;
+      rel.pactExpiry = null;
+      events.push(this._makeEvent(state, 'war_declared',
+        `${state.empires[empireA].name} enters war against ${state.empires[enemyId].name} — allied with ${state.empires[empireB].name}!`,
+        [empireA, enemyId, empireB]));
+    }
+
+    return events;
   }
 
-  _proposeTrade(state, empireId, action) {
-    return this._queueProposal(state, empireId, action.target_empire_id, 'propose_trade',
-      `${state.empires[empireId].name} proposes a trade agreement to ${state.empires[action.target_empire_id].name}`);
-  }
+  _callAlliesToWar(state, aggressorId, targetId) {
+    const events = [];
 
-  _proposeAlliance(state, empireId, action) {
-    return this._queueProposal(state, empireId, action.target_empire_id, 'propose_alliance',
-      `${state.empires[empireId].name} proposes an alliance with ${state.empires[action.target_empire_id].name}`);
+    const alliesOf = (eId) => {
+      const allies = [];
+      for (const rel of Object.values(state.relations)) {
+        if (rel.status !== 'alliance') continue;
+        if (rel.empireA === eId) allies.push(rel.empireB);
+        else if (rel.empireB === eId) allies.push(rel.empireA);
+      }
+      return allies;
+    };
+
+    for (const allyId of alliesOf(targetId)) {
+      if (allyId === aggressorId) continue;
+      const allyKey = getRelationKey(aggressorId, allyId);
+      const allyRel = state.relations[allyKey];
+      if (!allyRel || allyRel.status === 'war') continue;
+
+      allyRel.status = 'war';
+      allyRel.tradeValue = 0;
+      allyRel.pactExpiry = null;
+
+      events.push(this._makeEvent(state, 'war_declared',
+        `${state.empires[allyId].name} joined the war against ${state.empires[aggressorId].name} in defense of their ally ${state.empires[targetId].name}!`,
+        [allyId, aggressorId, targetId]));
+    }
+
+    for (const allyId of alliesOf(aggressorId)) {
+      if (allyId === targetId) continue;
+      const allyKey = getRelationKey(targetId, allyId);
+      const allyRel = state.relations[allyKey];
+      if (!allyRel || allyRel.status === 'war') continue;
+
+      allyRel.status = 'war';
+      allyRel.tradeValue = 0;
+      allyRel.pactExpiry = null;
+
+      events.push(this._makeEvent(state, 'war_declared',
+        `${state.empires[allyId].name} joined the war against ${state.empires[targetId].name} in support of their ally ${state.empires[aggressorId].name}!`,
+        [allyId, targetId, aggressorId]));
+    }
+
+    return events;
   }
 
   _breakAlliance(state, empireId, action) {
@@ -234,21 +254,6 @@ export class DiplomacyEngine {
     return [this._makeEvent(state, 'message_sent',
       `${state.empires[empireId].name} sent a message to ${state.empires[action.target_empire_id].name}: "${(action.message || '').slice(0, 80)}"`,
       [empireId, action.target_empire_id])];
-  }
-
-  _queueProposal(state, fromId, toId, type, description) {
-    const msg = {
-      id: `prop_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      fromEmpireId: fromId,
-      toEmpireId: toId,
-      type,
-      message: description,
-      turn: state.meta.turn,
-      status: 'pending',
-    };
-    state.diplomacyQueue.push(msg);
-
-    return [this._makeEvent(state, type, description, [fromId, toId])];
   }
 
   _makeEvent(state, type, description, involvedEmpires) {
