@@ -90,14 +90,14 @@ export class TerritoryLayer {
     html += `<span>Gold: ${territory.resources.gold}</span>`;
     html += `</div>`;
     if (territory.terrain) {
-      html += `<div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px;">Terrain: ${territory.terrain}</div>`;
+      html += `<div style="color: var(--ink-tertiary); font-size: 11px; margin-top: 4px;">Terrain: ${territory.terrain}</div>`;
     }
     const buildingNames = Object.keys(territory.buildings || {}).filter(b => territory.buildings[b]);
     if (buildingNames.length > 0) {
-      html += `<div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px;">Buildings: ${buildingNames.map(b => b.charAt(0).toUpperCase() + b.slice(1)).join(', ')}</div>`;
+      html += `<div style="color: var(--ink-tertiary); font-size: 11px; margin-top: 4px;">Buildings: ${buildingNames.map(b => b.charAt(0).toUpperCase() + b.slice(1)).join(', ')}</div>`;
     }
     if (armies.length > 0) {
-      html += `<div style="margin-top: 4px; font-size: 0.8rem;">`;
+      html += `<div style="margin-top: 4px; font-size: 12px;">`;
       armies.forEach(a => {
         const ae = this.gameState.empires[a.empireId];
         html += `<span style="color: ${ae.color}">Army: ${a.size} units</span> `;

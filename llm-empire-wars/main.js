@@ -30,7 +30,7 @@ class App {
       <div class="empire-preview">
         <div class="empire-color-dot" style="background:${e.color}"></div>
         <span class="empire-preview-name" style="color:${e.color}">${e.name}</span>
-        <span class="empire-preview-personality">${e.personality.replace(/_/g, ' ')}</span>
+        <span class="empire-preview-model">${e.model.split('/').pop()}</span>
       </div>
     `).join('');
 
@@ -254,7 +254,7 @@ class App {
     const stats = document.getElementById('game-over-stats');
 
     const reasons = {
-      domination: 'achieved total domination of Europe!',
+      domination: 'achieved total domination!',
       turn_limit: 'controls the most territory as time runs out!',
       last_standing: 'is the last empire standing!',
     };
@@ -274,9 +274,9 @@ class App {
         <div class="game-over-stat">
           <div class="empire-stat-color" style="background:${e.color}"></div>
           <span style="color:${e.color};font-weight:600;flex:1">${e.name}</span>
-          <span style="color:var(--text-secondary)">🏰 ${territories} territories</span>
-          <span style="color:var(--text-secondary)">💰 ${e.treasury}g</span>
-          ${e.isEliminated ? '<span style="color:var(--danger)">ELIMINATED</span>' : ''}
+          <span class="stat-label">${territories} terr</span>
+          <span class="stat-label">${e.treasury}g</span>
+          ${e.isEliminated ? '<span style="color:var(--danger);font-size:11px;font-weight:500">ELIMINATED</span>' : ''}
         </div>`;
     }).join('');
 

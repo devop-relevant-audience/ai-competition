@@ -20,13 +20,33 @@ export class OverseersPanel {
       callbacks.extraCallbacks || {},
     );
 
+    this._initTabs();
     this._bindEvents();
     this._initResizeHandles();
+  }
+
+  _initTabs() {
+    const tabs = document.querySelectorAll('.panel-tab');
+    const contents = document.querySelectorAll('.panel-tab-content');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.tab;
+
+        tabs.forEach(t => t.classList.remove('active'));
+        contents.forEach(c => c.classList.remove('active'));
+
+        tab.classList.add('active');
+        const content = document.querySelector(`[data-tab-content="${target}"]`);
+        if (content) content.classList.add('active');
+      });
+    });
   }
 
   _bindEvents() {
     document.addEventListener('empire-wars:ai-thinking', (e) => {
       this.gameState && this.reasoningLog.showThinking(e.detail.empireId, this.gameState);
+      this._activateTab('reasoning');
     });
 
     document.addEventListener('empire-wars:ai-done', (e) => {
@@ -40,6 +60,13 @@ export class OverseersPanel {
     });
   }
 
+  _activateTab(tabName) {
+    const tab = document.querySelector(`.panel-tab[data-tab="${tabName}"]`);
+    if (tab && !tab.classList.contains('active')) {
+      tab.click();
+    }
+  }
+
   _initResizeHandles() {
     const panelHandle = document.getElementById('resize-panel');
     const bottomHandle = document.getElementById('resize-bottom');
@@ -49,7 +76,7 @@ export class OverseersPanel {
     if (panelHandle && rightPanel) {
       this._makeDraggable(panelHandle, 'col', (delta) => {
         const current = rightPanel.offsetWidth;
-        const next = Math.max(260, Math.min(700, current - delta));
+        const next = Math.max(280, Math.min(700, current - delta));
         rightPanel.style.width = next + 'px';
       });
     }
@@ -62,32 +89,13 @@ export class OverseersPanel {
       });
     }
 
-    document.querySelectorAll('.panel-resize').forEach(handle => {
-      const aboveId = handle.dataset.above;
-      const belowId = handle.dataset.below;
-      const above = document.getElementById(aboveId);
-      const below = document.getElementById(belowId);
-      if (!above || !below) return;
-
-      this._makeDraggable(handle, 'row', (delta) => {
-        const aboveH = above.offsetHeight + delta;
-        const belowH = below.offsetHeight - delta;
-        if (aboveH < 50 || belowH < 50) return;
-        above.style.flex = 'none';
-        below.style.flex = 'none';
-        above.style.height = aboveH + 'px';
-        below.style.height = belowH + 'px';
-      });
-    });
-
     const bottomSplitHandle = document.getElementById('resize-bottom-split');
     const turnControls = document.getElementById('turn-controls');
-    const eventLogArea = document.getElementById('event-log-area');
 
-    if (bottomSplitHandle && turnControls && eventLogArea) {
+    if (bottomSplitHandle && turnControls) {
       this._makeDraggable(bottomSplitHandle, 'col', (delta) => {
         const current = turnControls.offsetWidth;
-        const next = Math.max(260, Math.min(600, current + delta));
+        const next = Math.max(280, Math.min(600, current + delta));
         turnControls.style.minWidth = next + 'px';
         turnControls.style.width = next + 'px';
       });

@@ -11,7 +11,7 @@ export class MessagesFeed {
       .slice(0, this.maxMessages);
 
     if (messages.length === 0) {
-      this.container.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:8px;">No messages yet.</div>';
+      this.container.innerHTML = '<div class="empty-state">No messages yet.</div>';
       return;
     }
 
@@ -23,10 +23,10 @@ export class MessagesFeed {
       return `
         <div class="msg-entry" style="border-left-color:${from.color}">
           <div class="msg-header">
-            <span style="color:${from.color}">${from.name}</span>
-            <span>→</span>
-            <span style="color:${to.color}">${to.name}</span>
-            <span style="margin-left:auto;">T${m.turn}</span>
+            <span style="color:${from.color};font-weight:500">${this._escapeHtml(from.name)}</span>
+            <span style="color:var(--ink-tertiary)">→</span>
+            <span style="color:${to.color};font-weight:500">${this._escapeHtml(to.name)}</span>
+            <span style="margin-left:auto;font-family:var(--font-mono)">T${m.turn}</span>
           </div>
           <div class="msg-body">"${this._escapeHtml(m.message || '')}"</div>
         </div>`;

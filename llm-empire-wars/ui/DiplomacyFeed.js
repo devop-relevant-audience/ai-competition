@@ -11,7 +11,7 @@ export class DiplomacyFeed {
       .slice(0, this.maxMessages);
 
     if (messages.length === 0) {
-      this.container.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:8px;">No diplomatic activity yet.</div>';
+      this.container.innerHTML = '<div class="empty-state">No diplomatic activity yet.</div>';
       return;
     }
 
@@ -28,12 +28,12 @@ export class DiplomacyFeed {
         <div class="diplo-message">
           <div class="diplo-header">
             <span class="diplo-dot" style="background:${from.color}"></span>
-            <span style="color:${from.color}">${from.name}</span>
-            <span>→</span>
-            <span style="color:${to.color}">${to.name}</span>
+            <span style="color:${from.color};font-weight:500">${this._escapeHtml(from.name)}</span>
+            <span style="color:var(--ink-tertiary)">→</span>
+            <span style="color:${to.color};font-weight:500">${this._escapeHtml(to.name)}</span>
             <span class="diplo-type ${typeClass}">${typeLabel}${statusStr}</span>
           </div>
-          <div style="color:var(--text-secondary)">[Turn ${m.turn}] ${this._escapeHtml(m.message || '')}</div>
+          <div class="diplo-body">T${m.turn} — ${this._escapeHtml(m.message || '')}</div>
         </div>`;
     }).join('');
   }

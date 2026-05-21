@@ -56,9 +56,9 @@ export class DiplomacyEditor {
 
       html += `
         <div class="diplo-row" id="${rowId}">
-          <span class="diplo-empire" style="color:${eA.color}">${eA.name}</span>
+          <span class="diplo-empire" style="color:${eA.color}">${this._escapeHtml(eA.name)}</span>
           <span class="diplo-arrow">↔</span>
-          <span class="diplo-empire" style="color:${eB.color}">${eB.name}</span>
+          <span class="diplo-empire" style="color:${eB.color}">${this._escapeHtml(eB.name)}</span>
           <select class="diplo-select diplo-status-${currentStatus}" data-key="${key}" data-row="${rowId}">
             ${STATUSES.map(s => `<option value="${s}" ${s === currentStatus ? 'selected' : ''}>${s.toUpperCase()}</option>`).join('')}
           </select>
@@ -125,5 +125,11 @@ export class DiplomacyEditor {
     if (this.onRelationChanged) {
       this.onRelationChanged(this.gameState);
     }
+  }
+
+  _escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 }

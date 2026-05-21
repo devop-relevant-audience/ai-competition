@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LLM Empire Wars</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -11,8 +14,8 @@
   <!-- Setup Screen -->
   <div id="setup-screen" class="setup-screen">
     <div class="setup-card">
-      <h1 class="setup-title">LLM Empire Wars</h1>
-      <p class="setup-subtitle">Watch AI empires battle for European dominance</p>
+      <h1 class="setup-title">LLM Empire <span class="accent">Wars</span></h1>
+      <p class="setup-subtitle">Watch AI empires battle for dominance across Europe &amp; the Middle East</p>
       <div class="setup-field">
         <label for="api-key-input">OpenRouter API Key</label>
         <input type="password" id="api-key-input" placeholder="sk-or-..." autocomplete="off" />
@@ -43,23 +46,25 @@
 
       <!-- Right Panel -->
       <div class="right-panel" id="right-panel">
-        <div class="panel-section" id="empire-stats-panel">
-          <h2 class="panel-title">Empires</h2>
+        <!-- Tabs -->
+        <div class="panel-tabs" id="panel-tabs">
+          <button class="panel-tab active" data-tab="empires">Empires</button>
+          <button class="panel-tab" data-tab="reasoning">Reasoning</button>
+          <button class="panel-tab" data-tab="diplomacy">Diplomacy</button>
+          <button class="panel-tab" data-tab="messages">Messages</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="panel-section panel-tab-content active" id="tab-empires" data-tab-content="empires">
           <div id="empire-stats"></div>
         </div>
-        <div class="resize-handle-h panel-resize" data-above="empire-stats-panel" data-below="reasoning-panel"></div>
-        <div class="panel-section" id="reasoning-panel">
-          <h2 class="panel-title">AI Reasoning</h2>
+        <div class="panel-section panel-tab-content" id="tab-reasoning" data-tab-content="reasoning">
           <div id="reasoning-log"></div>
         </div>
-        <div class="resize-handle-h panel-resize" data-above="reasoning-panel" data-below="diplomacy-panel"></div>
-        <div class="panel-section" id="diplomacy-panel">
-          <h2 class="panel-title">Diplomacy</h2>
+        <div class="panel-section panel-tab-content" id="tab-diplomacy" data-tab-content="diplomacy">
           <div id="diplomacy-feed"></div>
         </div>
-        <div class="resize-handle-h panel-resize" data-above="diplomacy-panel" data-below="messages-panel"></div>
-        <div class="panel-section" id="messages-panel">
-          <h2 class="panel-title">Messages</h2>
+        <div class="panel-section panel-tab-content" id="tab-messages" data-tab-content="messages">
           <div id="messages-feed"></div>
         </div>
       </div>

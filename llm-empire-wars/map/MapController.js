@@ -15,9 +15,19 @@ export class MapController {
       attributionControl: true,
     });
 
-    L.tileLayer(MAP_CONFIG.tileUrl, {
+    this.map.createPane('labels');
+    this.map.getPane('labels').style.zIndex = 450;
+    this.map.getPane('labels').style.pointerEvents = 'none';
+
+    L.tileLayer(MAP_CONFIG.baseTileUrl, {
       attribution: MAP_CONFIG.tileAttribution,
       subdomains: 'abcd',
+    }).addTo(this.map);
+
+    L.tileLayer(MAP_CONFIG.labelsTileUrl, {
+      attribution: '',
+      subdomains: 'abcd',
+      pane: 'labels',
     }).addTo(this.map);
 
     this.territoryLayer = new TerritoryLayer(this.map);

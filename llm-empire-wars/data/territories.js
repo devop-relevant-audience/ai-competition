@@ -36,6 +36,21 @@ export const TERRITORY_DATA = {
   slovenia:        { name: 'Slovenia',               resources: { food: 1, production: 2, gold: 2 }, terrain: 'mountains' },
   moldova:         { name: 'Moldova',                resources: { food: 2, production: 1, gold: 1 }, terrain: 'plains' },
   turkey:          { name: 'Turkey',                 resources: { food: 4, production: 3, gold: 3 }, terrain: 'plains' },
+
+  // Middle East
+  syria:           { name: 'Syria',                  resources: { food: 2, production: 2, gold: 1 }, terrain: 'desert' },
+  iraq:            { name: 'Iraq',                   resources: { food: 2, production: 3, gold: 4 }, terrain: 'desert' },
+  iran:            { name: 'Iran',                   resources: { food: 3, production: 4, gold: 4 }, terrain: 'mountains' },
+  saudi_arabia:    { name: 'Saudi Arabia',           resources: { food: 1, production: 2, gold: 5 }, terrain: 'desert' },
+  jordan:          { name: 'Jordan',                 resources: { food: 1, production: 1, gold: 2 }, terrain: 'desert' },
+  lebanon:         { name: 'Lebanon',                resources: { food: 2, production: 2, gold: 3 }, terrain: 'coast' },
+  israel:          { name: 'Israel',                 resources: { food: 2, production: 3, gold: 3 }, terrain: 'coast' },
+  egypt:           { name: 'Egypt',                  resources: { food: 3, production: 3, gold: 4 }, terrain: 'desert' },
+  kuwait:          { name: 'Kuwait',                 resources: { food: 1, production: 1, gold: 5 }, terrain: 'desert' },
+  uae:             { name: 'United Arab Emirates',   resources: { food: 1, production: 2, gold: 5 }, terrain: 'desert' },
+  oman:            { name: 'Oman',                   resources: { food: 1, production: 2, gold: 3 }, terrain: 'desert' },
+  yemen:           { name: 'Yemen',                  resources: { food: 2, production: 1, gold: 1 }, terrain: 'desert' },
+  qatar:           { name: 'Qatar',                  resources: { food: 1, production: 1, gold: 5 }, terrain: 'desert' },
 };
 
 export const ADJACENCY = {
@@ -75,7 +90,22 @@ export const ADJACENCY = {
   north_macedonia: ['serbia', 'bulgaria', 'greece', 'albania'],
   slovenia:        ['italy', 'austria', 'hungary', 'croatia'],
   moldova:         ['romania', 'ukraine'],
-  turkey:          ['bulgaria', 'greece'],
+  turkey:          ['bulgaria', 'greece', 'syria', 'iraq', 'iran'],
+
+  // Middle East
+  syria:           ['turkey', 'iraq', 'jordan', 'israel', 'lebanon'],
+  iraq:            ['turkey', 'syria', 'jordan', 'saudi_arabia', 'kuwait', 'iran'],
+  iran:            ['turkey', 'iraq', 'kuwait', 'uae', 'oman'],
+  saudi_arabia:    ['iraq', 'jordan', 'kuwait', 'qatar', 'uae', 'oman', 'yemen', 'egypt'],
+  jordan:          ['syria', 'iraq', 'saudi_arabia', 'israel', 'egypt'],
+  lebanon:         ['syria', 'israel'],
+  israel:          ['syria', 'jordan', 'lebanon', 'egypt'],
+  egypt:           ['israel', 'jordan', 'saudi_arabia'],
+  kuwait:          ['iraq', 'saudi_arabia', 'iran'],
+  uae:             ['saudi_arabia', 'oman', 'iran', 'qatar'],
+  oman:            ['saudi_arabia', 'uae', 'yemen', 'iran'],
+  yemen:           ['saudi_arabia', 'oman'],
+  qatar:           ['saudi_arabia', 'uae'],
 };
 
 export const BUILDING_DEFS = {
@@ -90,6 +120,7 @@ export const TERRAIN_MODIFIERS = {
   forest:    { defense: 1.2 },
   plains:    { defense: 1.0 },
   coast:     { defense: 1.0 },
+  desert:    { defense: 0.9 },
   capital:   { defense: 1.3 },
 };
 
@@ -131,4 +162,19 @@ export const TERRITORY_CENTROIDS = {
   slovenia:        [46.1, 14.8],
   moldova:         [47.2, 28.5],
   turkey:          [39.9, 32.8],
+
+  // Middle East
+  syria:           [35.0, 38.5],
+  iraq:            [33.2, 43.7],
+  iran:            [32.4, 53.7],
+  saudi_arabia:    [23.9, 45.1],
+  jordan:          [31.2, 36.8],
+  lebanon:         [33.9, 35.9],
+  israel:          [31.5, 34.8],
+  egypt:           [26.8, 30.8],
+  kuwait:          [29.3, 47.5],
+  uae:             [23.4, 53.8],
+  oman:            [21.5, 57.0],
+  yemen:           [15.6, 48.0],
+  qatar:           [25.3, 51.2],
 };

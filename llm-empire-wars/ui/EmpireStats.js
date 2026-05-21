@@ -1,5 +1,4 @@
 import { getEmpireTerritories, getEmpireArmies, getRelation } from '../engine/GameState.js';
-import { BUILDING_DEFS } from '../data/territories.js';
 
 export class EmpireStats {
   constructor(container) {
@@ -16,49 +15,49 @@ export class EmpireStats {
       return { empire: e, territoryCount: territories.length, totalUnits, armyCount: armies.length, totalFood };
     }).sort((a, b) => b.territoryCount - a.territoryCount);
 
-    const maxTerritories = stats[0]?.territoryCount || 0;
-
     this.container.innerHTML = stats.map((s, i) => {
       const e = s.empire;
       const leading = i === 0 && !e.isEliminated ? 'leading' : '';
       const eliminated = e.isEliminated ? 'eliminated' : '';
 
-      let relations = '';
-      const others = empires.filter(o => o.id !== e.id);
+      const others = empires.filter(o => o.id !== e.id && !o.isEliminated);
       const relBadges = others.map(o => {
         const rel = getRelation(gameState, e.id, o.id);
         const status = rel ? rel.status : 'neutral';
-        const dotColor = o.color;
-        return `<span class="relation-badge ${status}" title="${o.name}: ${status}"><span style="color:${dotColor}">●</span> ${status}</span>`;
+        return `<span class="relation-badge ${status}"><span style="color:${o.color}">●</span> ${status}</span>`;
       }).join('');
 
       return `
         <div class="empire-stat-row ${leading} ${eliminated}">
           <div class="empire-stat-color" style="background:${e.color}"></div>
           <div class="empire-stat-name" style="color:${e.color}">
-            ${e.name}
-            ${e.isEliminated ? '<span style="color:var(--danger);font-size:0.7rem"> ELIMINATED</span>' : ''}
+            ${this._escapeHtml(e.name)}
+            ${e.isEliminated ? '<span style="color:var(--danger);font-size:10px;font-weight:500;margin-left:6px">ELIMINATED</span>' : ''}
             <div class="relations-row">${relBadges}</div>
           </div>
           <div class="empire-stat-metrics">
-            <span title="Territories">🏰 ${s.territoryCount}</span>
-            <span title="Army units">⚔️ ${s.totalUnits}</span>
-            <span title="Food">🌾 ${s.totalFood}</span>
-            <span title="Treasury">💰 ${e.treasury}</span>
-            <span title="Reputation">⭐ ${e.reputation}</span>
-            <span title="Confidence">${this._confidenceIcon(e.confidence)} ${e.confidence}</span>
+            <span class="metric" title="Territories"><span class="metric-value">${s.territoryCount}</span> terr</span>
+            <span class="metric" title="Army units"><span class="metric-value">${s.totalUnits}</span> units</span>
+            <span class="metric" title="Food"><span class="metric-value">${s.totalFood}</span> food</span>
+            <span class="metric" title="Treasury"><span class="metric-value">${e.treasury}</span> gold</span>
+            <span class="metric" title="Reputation"><span class="metric-value">${e.reputation}</span> rep</span>
+            <span class="metric" title="Confidence">${this._confidenceBar(e.confidence)}</span>
           </div>
         </div>`;
     }).join('');
   }
 
-  _confidenceIcon(confidence) {
-    if (confidence <= 15) return '😰';
-    if (confidence <= 30) return '😟';
-    if (confidence <= 45) return '😐';
-    if (confidence <= 55) return '🙂';
-    if (confidence <= 70) return '😎';
-    if (confidence <= 85) return '💪';
-    return '👑';
+  _confidenceBar(confidence) {
+    const pct = Math.max(0, Math.min(100, confidence));
+    let color = 'var(--danger)';
+    if (pct > 30) color = 'var(--warning)';
+    if (pct > 60) color = 'var(--success)';
+    return `<span class="metric-value">${pct}</span> conf`;
+  }
+
+  _escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 }

@@ -28,15 +28,17 @@ export class TurnControls {
     this.container.innerHTML = `
       <div class="turn-info">
         <span class="turn-number" id="turn-number">Turn 1</span>
-        <span class="turn-phase" id="turn-phase">Ready</span>
-        <span class="turn-phase" id="turn-limit"></span>
+        <span class="turn-limit" id="turn-limit"></span>
+        <span class="turn-phase" id="turn-phase">
+          <span class="phase-badge phase-ready">Ready</span>
+        </span>
       </div>
-      <button class="ctrl-btn" id="btn-advance">▶ Next Turn</button>
+      <button class="ctrl-btn ctrl-btn-advance" id="btn-advance">Next Turn</button>
       <button class="ctrl-btn" id="btn-auto">Auto</button>
       <div class="speed-control">
-        <span>Speed:</span>
+        <span>Speed</span>
         <input type="range" min="1" max="4" value="2" id="speed-slider" />
-        <span id="speed-label">Normal</span>
+        <span class="speed-label" id="speed-label">Normal</span>
       </div>
       <div class="save-controls">
         <button class="ctrl-btn ctrl-btn-save" id="btn-save" title="Save Game">Save</button>
@@ -46,13 +48,13 @@ export class TurnControls {
           Import
           <input type="file" id="file-import" accept=".json" hidden />
         </label>
-        <button class="ctrl-btn ctrl-btn-diplo" id="btn-edit-diplomacy" title="Edit Empire Relations">Diplomacy</button>
+        <button class="ctrl-btn ctrl-btn-save ctrl-btn-diplo" id="btn-edit-diplomacy" title="Edit Empire Relations">Diplomacy</button>
       </div>
       <div class="history-slider hidden" id="history-slider-wrap">
         <div class="history-slider-row">
           <span class="history-slider-label" id="history-turn-label">Turn 1 / 1</span>
           <input type="range" min="1" max="1" value="1" id="history-slider" />
-          <button class="ctrl-btn ctrl-btn-live hidden" id="btn-return-live">◉ Live</button>
+          <button class="ctrl-btn ctrl-btn-live hidden" id="btn-return-live">Live</button>
         </div>
       </div>
     `;
@@ -72,7 +74,7 @@ export class TurnControls {
     this.btnAuto.addEventListener('click', () => {
       this.autoPlay = !this.autoPlay;
       this.btnAuto.classList.toggle('active', this.autoPlay);
-      this.btnAuto.textContent = this.autoPlay ? '⏸ Pause' : 'Auto';
+      this.btnAuto.textContent = this.autoPlay ? 'Pause' : 'Auto';
       this.onToggleAuto(this.autoPlay);
     });
 
@@ -150,12 +152,12 @@ export class TurnControls {
   }
 
   setPhase(phase) {
-    const labels = {
-      ai_thinking: 'AI Thinking...',
-      resolution: 'Resolving...',
-      awaiting_advance: 'Ready',
+    const phases = {
+      ai_thinking: '<span class="phase-badge phase-thinking"><span class="spinner"></span> AI Thinking</span>',
+      resolution: '<span class="phase-badge phase-resolving">Resolving</span>',
+      awaiting_advance: '<span class="phase-badge phase-ready">Ready</span>',
     };
-    this.turnPhase.textContent = labels[phase] || phase;
+    this.turnPhase.innerHTML = phases[phase] || phase;
     this.isProcessing = phase !== 'awaiting_advance';
     this.btnAdvance.disabled = this.isProcessing;
   }

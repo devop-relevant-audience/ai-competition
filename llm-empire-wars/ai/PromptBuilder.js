@@ -3,7 +3,7 @@ import { ADJACENCY } from '../data/territories.js';
 
 export class PromptBuilder {
   buildSystem(empire) {
-    return `You are the strategic leader of ${empire.name}, an empire competing for dominance in Europe.
+    return `You are the strategic leader of ${empire.name}, an empire competing for dominance across Europe and the Middle East.
 
 Your personality: ${empire.personalityDescription}
 

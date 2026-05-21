@@ -13,7 +13,11 @@ export class ReasoningLog {
     el.className = 'reasoning-thinking';
     el.style.borderLeftColor = empire.color;
     el.id = `thinking-${empireId}`;
-    el.innerHTML = `<div class="spinner"></div><span style="color:${empire.color}">${empire.name}</span> is thinking...`;
+    el.innerHTML = `
+      <div class="spinner"></div>
+      <span style="color:${empire.color};font-weight:600;font-size:12px">${this._escapeHtml(empire.name)}</span>
+      <span style="color:var(--ink-tertiary)">thinking...</span>
+    `;
 
     this.container.prepend(el);
   }
@@ -30,9 +34,10 @@ export class ReasoningLog {
     el.style.borderLeftColor = empire.color;
     el.innerHTML = `
       <div class="reasoning-empire-name" style="color:${empire.color}">
-        ${empire.name}${isError ? ' <span style="color:var(--danger)">[ERROR]</span>' : ''}
+        ${this._escapeHtml(empire.name)}
+        ${isError ? '<span style="color:var(--danger);font-size:10px;font-weight:500;background:rgba(229,72,77,0.12);padding:1px 6px;border-radius:9999px">ERROR</span>' : ''}
       </div>
-      <div>${this._escapeHtml(reasoning)}</div>
+      <div class="reasoning-text">${this._escapeHtml(reasoning)}</div>
     `;
 
     this.entries.unshift(el);
@@ -40,8 +45,7 @@ export class ReasoningLog {
 
     while (this.entries.length > this.maxEntries) {
       const old = this.entries.pop();
-      old.style.opacity = '0.3';
-      setTimeout(() => old.remove(), 500);
+      old.remove();
     }
   }
 

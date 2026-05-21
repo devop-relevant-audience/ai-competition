@@ -49,7 +49,7 @@ export class EventLog {
 
     const filterBtn = document.createElement('button');
     filterBtn.className = 'event-filter-btn';
-    filterBtn.textContent = 'Filter: All';
+    filterBtn.textContent = 'All';
     filterBtn.id = 'event-filter-btn';
 
     const dropdown = document.createElement('div');
@@ -75,7 +75,7 @@ export class EventLog {
       if (!option) return;
       this.activeFilter = option.dataset.filter;
       const label = FILTER_CATEGORIES[this.activeFilter]?.label || 'All';
-      filterBtn.textContent = `Filter: ${label}`;
+      filterBtn.textContent = label;
       dropdown.querySelectorAll('.event-filter-option').forEach(o => o.classList.remove('active'));
       option.classList.add('active');
       dropdown.classList.add('hidden');
@@ -101,7 +101,7 @@ export class EventLog {
       const msg = this.activeFilter === 'all'
         ? 'No events yet.'
         : `No ${FILTER_CATEGORIES[this.activeFilter]?.label || ''} events in the last 5 turns.`;
-      this.container.innerHTML = `<div style="color:var(--text-muted);font-size:0.82rem;">${msg}</div>`;
+      this.container.innerHTML = `<div class="empty-state">${msg}</div>`;
       return;
     }
 

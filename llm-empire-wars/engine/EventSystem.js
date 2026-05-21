@@ -86,7 +86,7 @@ export class EventSystem {
     if (!template) return events;
 
     const target = this._pickTarget(state, template);
-    const territoryName = target ? state.territories[target]?.name || target : 'Europe';
+    const territoryName = target ? state.territories[target]?.name || target : 'the known world';
     const description = template.description.replace('{territory}', territoryName);
 
     if (template.instantEffect) {
