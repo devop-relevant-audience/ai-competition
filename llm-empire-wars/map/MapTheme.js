@@ -2,11 +2,8 @@ export const MAP_CONFIG = {
   baseTileUrl: 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
   labelsTileUrl: 'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
   tileAttribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
-  europeCenter: [38, 30],
-  europeZoom: 4,
-  minZoom: 3,
+  minZoom: 2,
   maxZoom: 8,
-  maxBounds: [[10, -25], [72, 65]],
 };
 
 export const NEUTRAL_COLOR = '#1a1b1e';
@@ -15,19 +12,21 @@ export const BORDER_COLOR = '#0a0a0c';
 export function getTerritoryStyle(empire) {
   return {
     fillColor: empire ? empire.color : NEUTRAL_COLOR,
-    fillOpacity: empire ? 0.35 : 0.25,
-    color: empire ? lighten(empire.color, 0.2) : '#2a2b2f',
+    fillOpacity: empire ? 0.38 : 0.20,
+    color: empire ? empire.color : '#25262a',
+    opacity: empire ? 0.65 : 0.35,
     weight: 1.2,
-    dashArray: empire ? null : '3,3',
+    dashArray: empire ? null : '2,2',
   };
 }
 
 export function getHighlightStyle(empire) {
   return {
     fillColor: empire ? empire.color : '#34363b',
-    fillOpacity: empire ? 0.55 : 0.35,
-    color: '#f7f8f8',
-    weight: 1.8,
+    fillOpacity: empire ? 0.5 : 0.30,
+    color: empire ? empire.color : '#f7f8f8',
+    opacity: 0.85,
+    weight: 1.5,
   };
 }
 

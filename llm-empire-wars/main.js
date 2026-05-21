@@ -7,6 +7,7 @@ import { OverseersPanel } from './ui/OverseersPanel.js';
 import { DiplomacyEditor } from './ui/DiplomacyEditor.js';
 import { SaveManager } from './engine/SaveManager.js';
 import { EMPIRE_DEFINITIONS } from './data/empires.js';
+import { MAP_PRESETS, DEFAULT_PRESET } from './data/regions.js';
 
 class App {
   constructor() {
@@ -25,14 +26,26 @@ class App {
   }
 
   async _initSetupScreen() {
-    const empireContainer = document.getElementById('setup-empires');
-    empireContainer.innerHTML = EMPIRE_DEFINITIONS.map(e => `
-      <div class="empire-preview">
-        <div class="empire-color-dot" style="background:${e.color}"></div>
-        <span class="empire-preview-name" style="color:${e.color}">${e.name}</span>
-        <span class="empire-preview-model">${e.model.split('/').pop()}</span>
-      </div>
+    this.selectedPreset = DEFAULT_PRESET;
+
+    const presetContainer = document.getElementById('map-preset-selector');
+    presetContainer.innerHTML = Object.entries(MAP_PRESETS).map(([key, preset]) => `
+      <button class="preset-btn${key === DEFAULT_PRESET ? ' active' : ''}" data-preset="${key}">
+        <span class="preset-label">${preset.label}</span>
+        <span class="preset-desc">${preset.description}</span>
+      </button>
     `).join('');
+
+    presetContainer.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-preset]');
+      if (!btn) return;
+      this.selectedPreset = btn.dataset.preset;
+      presetContainer.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      this._updateEmpirePreview();
+    });
+
+    this._updateEmpirePreview();
 
     const apiKeyInput = document.getElementById('api-key-input');
     const startBtn = document.getElementById('start-game-btn');
@@ -65,6 +78,20 @@ class App {
     continueBtn.addEventListener('click', () => this._continueGame());
   }
 
+  _updateEmpirePreview() {
+    const preset = MAP_PRESETS[this.selectedPreset];
+    const activeRegions = preset.regions;
+    const empireContainer = document.getElementById('setup-empires');
+    const filtered = EMPIRE_DEFINITIONS.filter(e => activeRegions.includes(e.region));
+    empireContainer.innerHTML = filtered.map(e => `
+      <div class="empire-preview">
+        <div class="empire-color-dot" style="background:${e.color}"></div>
+        <span class="empire-preview-name" style="color:${e.color}">${e.name}</span>
+        <span class="empire-preview-model">${e.model.split('/').pop()}</span>
+      </div>
+    `).join('');
+  }
+
   async _startGame() {
     const apiKey = document.getElementById('api-key-input').value.trim();
     const turnLimit = parseInt(document.getElementById('turn-limit-input').value, 10) || 50;
@@ -81,9 +108,10 @@ class App {
     document.getElementById('setup-screen').classList.add('hidden');
     document.getElementById('game-screen').classList.remove('hidden');
 
-    this.gameState = createInitialState({ turnLimit });
+    const preset = MAP_PRESETS[this.selectedPreset];
+    this.gameState = createInitialState({ turnLimit, regions: preset.regions, presetKey: this.selectedPreset });
 
-    await this._initGameUI();
+    await this._initGameUI(preset);
   }
 
   async _continueGame() {
@@ -108,8 +136,10 @@ class App {
     document.getElementById('game-screen').classList.remove('hidden');
 
     this.gameState = record.gameState;
+    const presetKey = record.gameState.meta.presetKey || 'europe';
+    const preset = MAP_PRESETS[presetKey] || MAP_PRESETS.europe;
 
-    await this._initGameUI();
+    await this._initGameUI(preset);
   }
 
   async _resumeFromRecord(record) {
@@ -119,9 +149,9 @@ class App {
     this.panel.setPhase('awaiting_advance');
   }
 
-  async _initGameUI() {
-    this.mapController = new MapController('map');
-    await this.mapController.loadGeoJSON('data/europe.geojson');
+  async _initGameUI(preset) {
+    this.mapController = new MapController('map', preset);
+    await this.mapController.loadGeoJSON('data/europe.geojson', preset.regions);
 
     this.panel = new OverseersPanel({
       onAdvance: () => this._advanceTurn(),

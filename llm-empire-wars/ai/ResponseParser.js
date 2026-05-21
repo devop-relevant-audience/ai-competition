@@ -7,7 +7,7 @@ const ACTION_SCHEMA = {
   recruit_units:     { required: ['territory_id', 'amount'] },
   build:             { required: ['territory_id', 'building'] },
   hire_mercenaries:  { required: ['territory_id', 'amount'] },
-  buy_food:          { required: ['amount'] },
+  buy_manpower:      { required: ['amount'] },
   declare_war:       { required: ['target_empire_id'] },
   propose_peace:     { required: ['target_empire_id'] },
   propose_trade:     { required: ['target_empire_id'] },
@@ -131,8 +131,8 @@ export class ResponseParser {
         return this._coerceBuild(action, empireId, gameState);
       case 'hire_mercenaries':
         return this._coerceHireMercenaries(action, empireId, gameState);
-      case 'buy_food':
-        return this._coerceBuyFood(action, empireId, gameState);
+      case 'buy_manpower':
+        return this._coerceBuyManpower(action, empireId, gameState);
       case 'declare_war':
       case 'propose_peace':
       case 'propose_trade':
@@ -159,6 +159,7 @@ export class ResponseParser {
 
     if (!adjacent.includes(to)) {
       const reachable = adjacent.find(tid => {
+        if (!gameState.territories[tid]) return false;
         const rel = this._getRelWithOwner(gameState, empireId, gameState.territories[tid]?.ownerId);
         return !(rel && rel.status === 'alliance');
       });
@@ -178,12 +179,12 @@ export class ResponseParser {
     if (!tid || !gameState.territories[tid] || gameState.territories[tid].ownerId !== empireId) {
       const myTerritories = Object.values(gameState.territories).filter(t => t.ownerId === empireId);
       if (myTerritories.length === 0) return null;
-      myTerritories.sort((a, b) => b.resources.production - a.resources.production);
+      myTerritories.sort((a, b) => b.resources.industry - a.resources.industry);
       tid = myTerritories[0].id;
     }
 
     const territory = gameState.territories[tid];
-    const maxRecruit = Math.floor(territory.resources.production / 2);
+    const maxRecruit = Math.floor(territory.resources.industry / 2);
     const amount = Math.min(Math.max(1, parseInt(action.amount, 10) || 1), maxRecruit);
     if (amount <= 0) return null;
 
@@ -218,7 +219,7 @@ export class ResponseParser {
     return { ...action, territory_id: tid, amount };
   }
 
-  _coerceBuyFood(action, empireId, gameState) {
+  _coerceBuyManpower(action, empireId, gameState) {
     const amount = Math.min(Math.max(1, parseInt(action.amount, 10) || 1), 5);
     return { ...action, amount };
   }
@@ -343,7 +344,7 @@ export class ResponseParser {
       }
     }
 
-    if (action.type === 'recruit_units' || action.type === 'hire_mercenaries' || action.type === 'buy_food') {
+    if (action.type === 'recruit_units' || action.type === 'hire_mercenaries' || action.type === 'buy_manpower') {
       action.amount = parseInt(action.amount, 10);
       if (isNaN(action.amount) || action.amount < 1) {
         return { valid: false, error: `${action.type}: amount must be >= 1` };

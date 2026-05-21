@@ -85,9 +85,9 @@ export class TerritoryLayer {
     html += empire ? empire.name : 'Neutral';
     html += `</div>`;
     html += `<div class="tooltip-resources">`;
-    html += `<span>Food: ${territory.resources.food}</span>`;
-    html += `<span>Prod: ${territory.resources.production}</span>`;
-    html += `<span>Gold: ${territory.resources.gold}</span>`;
+    html += `<span>Manpower: ${territory.resources.manpower}</span>`;
+    html += `<span>Industry: ${territory.resources.industry}</span>`;
+    html += `<span>Capital: ${territory.resources.capital}</span>`;
     html += `</div>`;
     if (territory.terrain) {
       html += `<div style="color: var(--ink-tertiary); font-size: 11px; margin-top: 4px;">Terrain: ${territory.terrain}</div>`;

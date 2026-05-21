@@ -12,9 +12,13 @@ function uuid() {
 
 export function createInitialState(config = {}) {
   const turnLimit = config.turnLimit || 50;
+  const activeRegions = config.regions || ['europe'];
+
+  const activeEmpireDefs = EMPIRE_DEFINITIONS.filter(def => activeRegions.includes(def.region));
+  const activeTerritoryEntries = Object.entries(TERRITORY_DATA).filter(([, data]) => activeRegions.includes(data.region));
 
   const empires = {};
-  EMPIRE_DEFINITIONS.forEach(def => {
+  activeEmpireDefs.forEach(def => {
     empires[def.id] = {
       id: def.id,
       name: def.name,
@@ -32,11 +36,11 @@ export function createInitialState(config = {}) {
 
   const territories = {};
   const empireStarting = {};
-  EMPIRE_DEFINITIONS.forEach(def => {
+  activeEmpireDefs.forEach(def => {
     empireStarting[def.id] = new Set(def.startingTerritories);
   });
 
-  for (const [tid, data] of Object.entries(TERRITORY_DATA)) {
+  for (const [tid, data] of activeTerritoryEntries) {
     let ownerId = null;
     for (const [empId, starts] of Object.entries(empireStarting)) {
       if (starts.has(tid)) { ownerId = empId; break; }
@@ -53,15 +57,16 @@ export function createInitialState(config = {}) {
     };
   }
 
-  EMPIRE_DEFINITIONS.forEach(def => {
-    if (def.startingTerritories.length > 0) {
+  activeEmpireDefs.forEach(def => {
+    if (def.startingTerritories.length > 0 && territories[def.startingTerritories[0]]) {
       territories[def.startingTerritories[0]].capital = true;
     }
   });
 
   const armies = {};
-  EMPIRE_DEFINITIONS.forEach(def => {
+  activeEmpireDefs.forEach(def => {
     def.startingTerritories.forEach((tid, i) => {
+      if (!territories[tid]) return;
       const armyId = `army_${def.id}_${i}`;
       const size = i === 0 ? 3 : 1;
       armies[armyId] = {
@@ -76,10 +81,10 @@ export function createInitialState(config = {}) {
   });
 
   const ownedTerritoryIds = new Set();
-  EMPIRE_DEFINITIONS.forEach(def => {
+  activeEmpireDefs.forEach(def => {
     def.startingTerritories.forEach(tid => ownedTerritoryIds.add(tid));
   });
-  for (const tid of Object.keys(TERRITORY_DATA)) {
+  for (const [tid] of activeTerritoryEntries) {
     if (!ownedTerritoryIds.has(tid)) {
       const armyId = `army_neutral_${tid}`;
       armies[armyId] = {
@@ -93,7 +98,7 @@ export function createInitialState(config = {}) {
   }
 
   const relations = {};
-  const empireIds = EMPIRE_DEFINITIONS.map(d => d.id);
+  const empireIds = activeEmpireDefs.map(d => d.id);
   for (let i = 0; i < empireIds.length; i++) {
     for (let j = i + 1; j < empireIds.length; j++) {
       const key = getRelationKey(empireIds[i], empireIds[j]);
@@ -118,6 +123,8 @@ export function createInitialState(config = {}) {
       turnLimit,
       phase: 'awaiting_advance',
       speed: 'normal',
+      regions: activeRegions,
+      presetKey: config.presetKey || null,
       createdAt: new Date().toISOString(),
       lastUpdatedAt: new Date().toISOString(),
     },
@@ -152,7 +159,8 @@ export function getEmpireArmies(state, empireId) {
   return Object.values(state.armies).filter(a => a.empireId === empireId);
 }
 
-export function getTotalTerritories() {
+export function getTotalTerritories(state) {
+  if (state) return Object.keys(state.territories).length;
   return Object.keys(TERRITORY_DATA).length;
 }
 

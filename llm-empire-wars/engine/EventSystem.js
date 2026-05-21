@@ -2,18 +2,18 @@ import { adjustConfidence } from './GameState.js';
 
 const EVENT_TEMPLATES = [
   {
-    type: 'famine',
-    name: 'Famine',
-    description: 'A terrible famine strikes {territory}!',
-    effect: { food: -2 },
+    type: 'labor_strike',
+    name: 'Labor Strike',
+    description: 'A general strike cripples workforce output in {territory}!',
+    effect: { manpower: -2 },
     duration: 2,
-    weight: (territory) => territory.resources.food <= 2 ? 2 : 1,
+    weight: (territory) => territory.resources.manpower <= 2 ? 2 : 1,
     targetType: 'owned_territory',
   },
   {
-    type: 'plague',
-    name: 'Plague',
-    description: 'Plague ravages armies in {territory}!',
+    type: 'epidemic',
+    name: 'Epidemic',
+    description: 'A disease outbreak decimates military personnel in {territory}!',
     instantEffect: (state, territoryId) => {
       const armies = Object.values(state.armies).filter(a => a.locationId === territoryId);
       armies.forEach(a => { a.size = Math.max(1, a.size - 2); });
@@ -23,9 +23,9 @@ const EVENT_TEMPLATES = [
     targetType: 'territory_with_army',
   },
   {
-    type: 'gold_rush',
-    name: 'Gold Rush',
-    description: 'A gold rush in {territory} fills the coffers!',
+    type: 'foreign_investment',
+    name: 'Foreign Investment',
+    description: 'Foreign capital floods into {territory}!',
     instantEffect: (state, territoryId) => {
       const territory = state.territories[territoryId];
       if (territory && territory.ownerId) {
@@ -37,9 +37,9 @@ const EVENT_TEMPLATES = [
     targetType: 'owned_territory',
   },
   {
-    type: 'rebellion',
-    name: 'Rebellion',
-    description: 'A rebellion erupts in {territory}! The territory breaks free!',
+    type: 'coup',
+    name: 'Military Coup',
+    description: 'A military coup destabilizes {territory}! The region declares independence!',
     instantEffect: (state, territoryId) => {
       state.territories[territoryId].ownerId = null;
       state.territories[territoryId].capital = false;
@@ -49,9 +49,9 @@ const EVENT_TEMPLATES = [
     targetType: 'owned_territory',
   },
   {
-    type: 'storm',
-    name: 'Great Storm',
-    description: 'A devastating storm batters the coasts!',
+    type: 'infrastructure_collapse',
+    name: 'Infrastructure Collapse',
+    description: 'Critical infrastructure fails across coastal regions!',
     instantEffect: (state) => {
       const coastalArmies = Object.values(state.armies).filter(a => {
         const t = state.territories[a.locationId];
@@ -64,10 +64,10 @@ const EVENT_TEMPLATES = [
     targetType: 'global',
   },
   {
-    type: 'bountiful_harvest',
-    name: 'Bountiful Harvest',
-    description: 'A bountiful harvest blesses {territory}!',
-    effect: { food: 2 },
+    type: 'population_boom',
+    name: 'Population Boom',
+    description: 'A population boom surges through {territory}!',
+    effect: { manpower: 2 },
     duration: 2,
     weight: (territory) => territory.terrain === 'plains' ? 2 : 0.5,
     targetType: 'owned_territory',
@@ -109,8 +109,8 @@ export class EventSystem {
       ? [state.territories[target].ownerId]
       : [];
 
-    const POSITIVE_EVENTS = ['gold_rush', 'bountiful_harvest'];
-    const NEGATIVE_EVENTS = ['famine', 'plague', 'rebellion', 'storm'];
+    const POSITIVE_EVENTS = ['foreign_investment', 'population_boom'];
+    const NEGATIVE_EVENTS = ['labor_strike', 'epidemic', 'coup', 'infrastructure_collapse'];
     if (involvedEmpires.length > 0) {
       const empire = state.empires[involvedEmpires[0]];
       if (empire) {
@@ -135,13 +135,13 @@ export class EventSystem {
 
   _pickTemplate(state) {
     const totalWeight = EVENT_TEMPLATES.reduce((sum, t) => {
-      const w = t.targetType === 'global' ? t.weight() : t.weight({ resources: { food: 3 } });
+      const w = t.targetType === 'global' ? t.weight() : t.weight({ resources: { manpower: 3 }, terrain: 'plains' });
       return sum + w;
     }, 0);
 
     let roll = Math.random() * totalWeight;
     for (const template of EVENT_TEMPLATES) {
-      const w = template.targetType === 'global' ? template.weight() : template.weight({ resources: { food: 3 } });
+      const w = template.targetType === 'global' ? template.weight() : template.weight({ resources: { manpower: 3 }, terrain: 'plains' });
       roll -= w;
       if (roll <= 0) return template;
     }

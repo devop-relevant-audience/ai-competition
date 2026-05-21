@@ -11,8 +11,8 @@ export class EmpireStats {
       const territories = getEmpireTerritories(gameState, e.id);
       const armies = getEmpireArmies(gameState, e.id);
       const totalUnits = armies.reduce((s, a) => s + a.size, 0);
-      const totalFood = territories.reduce((s, t) => s + t.resources.food + (t.buildings?.farm ? 2 : 0), 0);
-      return { empire: e, territoryCount: territories.length, totalUnits, armyCount: armies.length, totalFood };
+      const totalManpower = territories.reduce((s, t) => s + t.resources.manpower + (t.buildings?.housing ? 2 : 0), 0);
+      return { empire: e, territoryCount: territories.length, totalUnits, armyCount: armies.length, totalManpower };
     }).sort((a, b) => b.territoryCount - a.territoryCount);
 
     this.container.innerHTML = stats.map((s, i) => {
@@ -37,9 +37,9 @@ export class EmpireStats {
           </div>
           <div class="empire-stat-metrics">
             <span class="metric" title="Territories"><span class="metric-value">${s.territoryCount}</span> terr</span>
-            <span class="metric" title="Army units"><span class="metric-value">${s.totalUnits}</span> units</span>
-            <span class="metric" title="Food"><span class="metric-value">${s.totalFood}</span> food</span>
-            <span class="metric" title="Treasury"><span class="metric-value">${e.treasury}</span> gold</span>
+            <span class="metric" title="Divisions"><span class="metric-value">${s.totalUnits}</span> units</span>
+            <span class="metric" title="Manpower"><span class="metric-value">${s.totalManpower}</span> mpower</span>
+            <span class="metric" title="Capital"><span class="metric-value">${e.treasury}</span> cap</span>
             <span class="metric" title="Reputation"><span class="metric-value">${e.reputation}</span> rep</span>
             <span class="metric" title="Confidence">${this._confidenceBar(e.confidence)}</span>
           </div>

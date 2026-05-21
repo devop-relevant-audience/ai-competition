@@ -22,7 +22,7 @@ export class GameEngine {
     const breakActions = {};
     const warActions = {};
     const buildActions = {};
-    const buyFoodActions = {};
+    const buyManpowerActions = {};
     const recruitActions = {};
     const mercActions = {};
     const moveActions = {};
@@ -32,7 +32,7 @@ export class GameEngine {
       breakActions[empireId] = actions.filter(a => a.type === 'break_alliance');
       warActions[empireId] = actions.filter(a => a.type === 'declare_war');
       buildActions[empireId] = actions.filter(a => a.type === 'build');
-      buyFoodActions[empireId] = actions.filter(a => a.type === 'buy_food');
+      buyManpowerActions[empireId] = actions.filter(a => a.type === 'buy_manpower');
       recruitActions[empireId] = actions.filter(a => a.type === 'recruit_units');
       mercActions[empireId] = actions.filter(a => a.type === 'hire_mercenaries');
       moveActions[empireId] = actions.filter(a => a.type === 'move_army');
@@ -45,7 +45,7 @@ export class GameEngine {
     allEvents.push(...this.diplomacy.processDiplomaticActions(state, warActions));
 
     allEvents.push(...this.economy.processBuilding(state, buildActions));
-    const foodBonusMap = this.economy.processBuyFood(state, buyFoodActions);
+    const manpowerBonusMap = this.economy.processBuyManpower(state, buyManpowerActions);
     allEvents.push(...this.economy.processRecruitment(state, recruitActions));
     allEvents.push(...this.economy.processMercenaries(state, mercActions));
 
@@ -62,7 +62,7 @@ export class GameEngine {
     const combatEvents = this.combat.resolve(state);
     allEvents.push(...combatEvents);
 
-    allEvents.push(...this.economy.updateEconomy(state, foodBonusMap));
+    allEvents.push(...this.economy.updateEconomy(state, manpowerBonusMap));
 
     const worldEvents = this.events.rollEvents(state);
     allEvents.push(...worldEvents);
@@ -111,6 +111,9 @@ export class GameEngine {
 
     const from = army.locationId;
     const to = action.to;
+    if (!state.territories[to]) {
+      return { success: false };
+    }
     const adjacent = ADJACENCY[from];
     if (!adjacent || !adjacent.includes(to)) {
       return { success: false };
@@ -210,7 +213,7 @@ export class GameEngine {
   }
 
   checkWinCondition(state) {
-    const total = getTotalTerritories();
+    const total = getTotalTerritories(state);
     const threshold = Math.ceil(total * 0.6);
 
     for (const empire of Object.values(state.empires)) {

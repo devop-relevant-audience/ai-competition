@@ -49,7 +49,7 @@ export class EconomyEngine {
         const territory = state.territories[action.territory_id];
         if (!territory || territory.ownerId !== empireId) continue;
 
-        const effectiveProd = territory.resources.production + (territory.buildings?.barracks ? 2 : 0);
+        const effectiveProd = territory.resources.industry + (territory.buildings?.factory ? 2 : 0);
         const maxRecruit = Math.floor(effectiveProd / 2);
         const amount = Math.min(action.amount || 0, maxRecruit);
         const goldCost = amount * 3;
@@ -136,14 +136,14 @@ export class EconomyEngine {
     return events;
   }
 
-  processBuyFood(state, allActions) {
-    const foodBonusMap = new Map();
+  processBuyManpower(state, allActions) {
+    const manpowerBonusMap = new Map();
 
     for (const [empireId, actions] of Object.entries(allActions)) {
       const empire = state.empires[empireId];
       if (!empire || empire.isEliminated) continue;
 
-      const buyActions = actions.filter(a => a.type === 'buy_food');
+      const buyActions = actions.filter(a => a.type === 'buy_manpower');
       if (buyActions.length === 0) continue;
 
       const action = buyActions[0];
@@ -153,20 +153,20 @@ export class EconomyEngine {
       if (amount <= 0) continue;
 
       empire.treasury -= amount * 3;
-      foodBonusMap.set(empireId, amount);
+      manpowerBonusMap.set(empireId, amount);
 
       state.eventLog.push({
         turn: state.meta.turn,
-        type: 'food_purchased',
-        description: `${empire.name} purchased ${amount} food for ${amount * 3} gold`,
+        type: 'manpower_purchased',
+        description: `${empire.name} conscripted ${amount} manpower for ${amount * 3} capital`,
         involvedEmpires: [empireId],
       });
     }
 
-    return foodBonusMap;
+    return manpowerBonusMap;
   }
 
-  updateEconomy(state, foodBonusMap = new Map()) {
+  updateEconomy(state, manpowerBonusMap = new Map()) {
     const events = [];
 
     for (const empire of Object.values(state.empires)) {
@@ -175,23 +175,23 @@ export class EconomyEngine {
       const territories = getEmpireTerritories(state, empire.id);
       const armies = getEmpireArmies(state, empire.id);
 
-      let goldIncome = 0;
-      let totalFood = 0;
+      let capitalIncome = 0;
+      let totalManpower = 0;
       territories.forEach(t => {
-        let foodMod = 0;
-        let goldMod = 0;
+        let manpowerMod = 0;
+        let capitalMod = 0;
         state.activeEvents.forEach(evt => {
           if (evt.affectedTerritoryId === t.id) {
-            foodMod += evt.effect.food || 0;
-            goldMod += evt.effect.gold || 0;
+            manpowerMod += evt.effect.manpower || 0;
+            capitalMod += evt.effect.capital || 0;
           }
         });
-        goldIncome += t.resources.gold + goldMod + (t.buildings?.market ? 2 : 0);
-        totalFood += t.resources.food + foodMod + (t.buildings?.farm ? 2 : 0);
+        capitalIncome += t.resources.capital + capitalMod + (t.buildings?.trade_office ? 2 : 0);
+        totalManpower += t.resources.manpower + manpowerMod + (t.buildings?.housing ? 2 : 0);
       });
 
-      const bonusFood = foodBonusMap.get(empire.id) || 0;
-      totalFood += bonusFood;
+      const bonusManpower = manpowerBonusMap.get(empire.id) || 0;
+      totalManpower += bonusManpower;
 
       let tradeIncome = 0;
       for (const rel of Object.values(state.relations)) {
@@ -206,13 +206,13 @@ export class EconomyEngine {
       const mercUnits = armies.filter(a => a.isMercenary).reduce((s, a) => s + a.size, 0);
       const armyUpkeep = Math.floor(regularUnits * 0.5) + (mercUnits * 1);
 
-      empire.treasury += goldIncome + tradeIncome - armyUpkeep;
+      empire.treasury += capitalIncome + tradeIncome - armyUpkeep;
       empire.treasury = Math.max(0, empire.treasury);
 
-      const foodNeeded = regularUnits;
+      const manpowerNeeded = regularUnits;
       const regularArmies = armies.filter(a => !a.isMercenary);
-      if (totalFood < foodNeeded && regularArmies.length > 0) {
-        const deficit = foodNeeded - totalFood;
+      if (totalManpower < manpowerNeeded && regularArmies.length > 0) {
+        const deficit = manpowerNeeded - totalManpower;
         const attritionPerArmy = Math.max(1, Math.floor(deficit / regularArmies.length));
 
         for (const army of regularArmies) {
@@ -225,7 +225,7 @@ export class EconomyEngine {
         events.push({
           turn: state.meta.turn,
           type: 'attrition',
-          description: `${empire.name} suffers food shortage! Armies lose strength.`,
+          description: `${empire.name} suffers manpower shortage! Divisions lose strength.`,
           involvedEmpires: [empire.id],
         });
       }

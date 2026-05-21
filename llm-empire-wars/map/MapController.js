@@ -1,15 +1,16 @@
 import { MAP_CONFIG } from './MapTheme.js';
 import { TerritoryLayer } from './TerritoryLayer.js';
 import { ArmyLayer } from './ArmyLayer.js';
+import { TERRITORY_DATA } from '../data/territories.js';
 
 export class MapController {
-  constructor(containerId) {
+  constructor(containerId, preset) {
     this.map = L.map(containerId, {
-      center: MAP_CONFIG.europeCenter,
-      zoom: MAP_CONFIG.europeZoom,
+      center: preset.mapCenter,
+      zoom: preset.mapZoom,
       minZoom: MAP_CONFIG.minZoom,
       maxZoom: MAP_CONFIG.maxZoom,
-      maxBounds: MAP_CONFIG.maxBounds,
+      maxBounds: preset.maxBounds,
       maxBoundsViscosity: 0.8,
       zoomControl: true,
       attributionControl: true,
@@ -34,9 +35,19 @@ export class MapController {
     this.armyLayer = new ArmyLayer(this.map);
   }
 
-  async loadGeoJSON(url) {
+  async loadGeoJSON(url, regions) {
     const response = await fetch(url);
     const geojson = await response.json();
+
+    if (regions) {
+      const activeIds = new Set(
+        Object.entries(TERRITORY_DATA)
+          .filter(([, data]) => regions.includes(data.region))
+          .map(([tid]) => tid)
+      );
+      geojson.features = geojson.features.filter(f => activeIds.has(f.properties.id));
+    }
+
     this.territoryLayer.setData(geojson);
     return geojson;
   }
