@@ -1,4 +1,5 @@
 import { getTerritoryStyle, getHighlightStyle } from './MapTheme.js';
+import { RUSSIA_SEGMENTS } from '../data/territories.js';
 
 export class TerritoryLayer {
   constructor(map) {
@@ -32,16 +33,47 @@ export class TerritoryLayer {
   _getStyle(feature) {
     if (!this.gameState) return getTerritoryStyle(null);
     const tid = feature.properties.id;
+
+    if (tid === 'russia') {
+      return this._getRussiaStyle();
+    }
+
     const territory = this.gameState.territories[tid];
     if (!territory || !territory.ownerId) return getTerritoryStyle(null);
     const empire = this.gameState.empires[territory.ownerId];
     return getTerritoryStyle(empire);
   }
 
+  _getRussiaStyle() {
+    const dominantEmpire = this._getRussiaDominantOwner();
+    if (!dominantEmpire) return getTerritoryStyle(null);
+    return getTerritoryStyle(dominantEmpire);
+  }
+
+  _getRussiaDominantOwner() {
+    if (!this.gameState) return null;
+    const ownerCounts = {};
+    for (const segId of RUSSIA_SEGMENTS) {
+      const seg = this.gameState.territories[segId];
+      if (seg && seg.ownerId) {
+        ownerCounts[seg.ownerId] = (ownerCounts[seg.ownerId] || 0) + 1;
+      }
+    }
+    if (Object.keys(ownerCounts).length === 0) return null;
+    const dominant = Object.entries(ownerCounts).sort((a, b) => b[1] - a[1])[0];
+    return this.gameState.empires[dominant[0]];
+  }
+
   _bindEvents(feature, layer) {
     layer.on('mouseover', (e) => {
-      const empire = this._getEmpireForFeature(feature);
-      layer.setStyle(getHighlightStyle(empire));
+      const tid = feature.properties.id;
+      if (tid === 'russia') {
+        const dominantEmpire = this._getRussiaDominantOwner();
+        layer.setStyle(getHighlightStyle(dominantEmpire));
+      } else {
+        const empire = this._getEmpireForFeature(feature);
+        layer.setStyle(getHighlightStyle(empire));
+      }
       layer.bringToFront();
       this._showTooltip(e, feature);
     });
@@ -74,6 +106,12 @@ export class TerritoryLayer {
   _showTooltip(e, feature) {
     if (!this.gameState) return;
     const tid = feature.properties.id;
+
+    if (tid === 'russia') {
+      this._showRussiaTooltip(e);
+      return;
+    }
+
     const territory = this.gameState.territories[tid];
     if (!territory) return;
 
@@ -101,6 +139,51 @@ export class TerritoryLayer {
       armies.forEach(a => {
         const ae = this.gameState.empires[a.empireId];
         html += `<span style="color: ${ae.color}">Army: ${a.size} units</span> `;
+      });
+      html += `</div>`;
+    }
+
+    this.tooltip.innerHTML = html;
+    this.tooltip.classList.remove('hidden');
+    this._moveTooltip(e);
+  }
+
+  _showRussiaTooltip(e) {
+    let html = `<div class="tooltip-name">Russia</div>`;
+    html += `<div style="color: var(--ink-tertiary); font-size: 11px; margin-bottom: 6px;">6 segments — control all for bonus resources</div>`;
+
+    let totalManpower = 0, totalIndustry = 0, totalCapital = 0;
+
+    for (const segId of RUSSIA_SEGMENTS) {
+      const seg = this.gameState.territories[segId];
+      if (!seg) continue;
+      const owner = seg.ownerId ? this.gameState.empires[seg.ownerId] : null;
+      const ownerColor = owner ? owner.color : '#888';
+      const ownerName = owner ? owner.name : 'Neutral';
+      totalManpower += seg.resources.manpower;
+      totalIndustry += seg.resources.industry;
+      totalCapital += seg.resources.capital;
+      html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">`;
+      html += `<span style="font-size: 11px;">${seg.name}</span>`;
+      html += `<span style="font-size: 10px; color: ${ownerColor}; font-weight: 500;">${ownerName}</span>`;
+      html += `</div>`;
+    }
+
+    html += `<div class="tooltip-resources" style="margin-top: 6px;">`;
+    html += `<span>Total Manpower: ${totalManpower}</span>`;
+    html += `<span>Total Industry: ${totalIndustry}</span>`;
+    html += `<span>Total Capital: ${totalCapital}</span>`;
+    html += `</div>`;
+
+    const armies = Object.values(this.gameState.armies).filter(a =>
+      RUSSIA_SEGMENTS.includes(a.locationId)
+    );
+    if (armies.length > 0) {
+      html += `<div style="margin-top: 4px; font-size: 12px;">`;
+      armies.forEach(a => {
+        const ae = this.gameState.empires[a.empireId];
+        const segName = this.gameState.territories[a.locationId]?.name || a.locationId;
+        html += `<div style="color: ${ae.color}">${segName}: ${a.size} units (${ae.name})</div>`;
       });
       html += `</div>`;
     }

@@ -1,5 +1,5 @@
 import { getEmpireTerritories, getEmpireArmies, adjustConfidence } from './GameState.js';
-import { BUILDING_DEFS } from '../data/territories.js';
+import { BUILDING_DEFS, RUSSIA_SEGMENTS } from '../data/territories.js';
 
 export class EconomyEngine {
   processBuilding(state, allActions) {
@@ -202,6 +202,13 @@ export class EconomyEngine {
         }
       }
 
+      const regionBonus = this._checkRegionBonuses(state, empire.id, territories);
+      capitalIncome += regionBonus.capital;
+      totalManpower += regionBonus.manpower;
+      if (regionBonus.event) {
+        events.push(regionBonus.event);
+      }
+
       const regularUnits = armies.filter(a => !a.isMercenary).reduce((s, a) => s + a.size, 0);
       const mercUnits = armies.filter(a => a.isMercenary).reduce((s, a) => s + a.size, 0);
       const armyUpkeep = Math.floor(regularUnits * 0.5) + (mercUnits * 1);
@@ -277,5 +284,24 @@ export class EconomyEngine {
     }
 
     return events;
+  }
+
+  _checkRegionBonuses(state, empireId, territories) {
+    const result = { capital: 0, manpower: 0, event: null };
+    const ownedIds = new Set(territories.map(t => t.id));
+
+    const holdsAllRussia = RUSSIA_SEGMENTS.every(id => ownedIds.has(id));
+    if (holdsAllRussia) {
+      result.capital += 5;
+      result.manpower += 3;
+      result.event = {
+        turn: state.meta.turn,
+        type: 'region_bonus',
+        description: `${state.empires[empireId].name} controls all of Russia — receiving bonus resources (+5 capital, +3 manpower)`,
+        involvedEmpires: [empireId],
+      };
+    }
+
+    return result;
   }
 }

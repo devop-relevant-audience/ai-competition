@@ -1,12 +1,12 @@
 export const TERRITORY_DATA = {
   // Europe
   france:          { name: 'France',                 region: 'europe', resources: { manpower: 4, industry: 4, capital: 3 }, terrain: 'plains' },
-  germany:         { name: 'Germany',                region: 'europe', resources: { manpower: 3, industry: 4, capital: 3 }, terrain: 'plains' },
+  germany:         { name: 'Germany',                region: 'europe', resources: { manpower: 3, industry: 3, capital: 2 }, terrain: 'plains' },
   spain:           { name: 'Spain',                  region: 'europe', resources: { manpower: 4, industry: 3, capital: 2 }, terrain: 'plains' },
-  portugal:        { name: 'Portugal',               region: 'europe', resources: { manpower: 2, industry: 2, capital: 3 }, terrain: 'coast' },
+  portugal:        { name: 'Portugal',               region: 'europe', resources: { manpower: 3, industry: 2, capital: 3 }, terrain: 'coast' },
   italy:           { name: 'Italy',                  region: 'europe', resources: { manpower: 3, industry: 4, capital: 3 }, terrain: 'coast' },
   united_kingdom:  { name: 'United Kingdom',         region: 'europe', resources: { manpower: 3, industry: 4, capital: 4 }, terrain: 'coast' },
-  ireland:         { name: 'Ireland',                region: 'europe', resources: { manpower: 3, industry: 2, capital: 1 }, terrain: 'coast' },
+  ireland:         { name: 'Ireland',                region: 'europe', resources: { manpower: 3, industry: 2, capital: 2 }, terrain: 'coast' },
   netherlands:     { name: 'Netherlands',            region: 'europe', resources: { manpower: 2, industry: 3, capital: 4 }, terrain: 'coast' },
   belgium:         { name: 'Belgium',                region: 'europe', resources: { manpower: 2, industry: 3, capital: 2 }, terrain: 'plains' },
   luxembourg:      { name: 'Luxembourg',             region: 'europe', resources: { manpower: 1, industry: 1, capital: 3 }, terrain: 'forest' },
@@ -17,17 +17,17 @@ export const TERRITORY_DATA = {
   slovakia:        { name: 'Slovakia',               region: 'europe', resources: { manpower: 2, industry: 2, capital: 1 }, terrain: 'mountains' },
   hungary:         { name: 'Hungary',                region: 'europe', resources: { manpower: 3, industry: 2, capital: 2 }, terrain: 'plains' },
   romania:         { name: 'Romania',                region: 'europe', resources: { manpower: 3, industry: 3, capital: 2 }, terrain: 'forest' },
-  bulgaria:        { name: 'Bulgaria',               region: 'europe', resources: { manpower: 2, industry: 2, capital: 1 }, terrain: 'forest' },
-  greece:          { name: 'Greece',                 region: 'europe', resources: { manpower: 2, industry: 2, capital: 3 }, terrain: 'coast' },
+  bulgaria:        { name: 'Bulgaria',               region: 'europe', resources: { manpower: 3, industry: 3, capital: 2 }, terrain: 'forest' },
+  greece:          { name: 'Greece',                 region: 'europe', resources: { manpower: 3, industry: 3, capital: 3 }, terrain: 'coast' },
   denmark:         { name: 'Denmark',                region: 'europe', resources: { manpower: 2, industry: 2, capital: 3 }, terrain: 'coast' },
   sweden:          { name: 'Sweden',                 region: 'europe', resources: { manpower: 3, industry: 3, capital: 2 }, terrain: 'forest' },
-  norway:          { name: 'Norway',                 region: 'europe', resources: { manpower: 2, industry: 2, capital: 4 }, terrain: 'mountains' },
-  finland:         { name: 'Finland',                region: 'europe', resources: { manpower: 2, industry: 3, capital: 2 }, terrain: 'forest' },
+  norway:          { name: 'Norway',                 region: 'europe', resources: { manpower: 2, industry: 3, capital: 4 }, terrain: 'mountains' },
+  finland:         { name: 'Finland',                region: 'europe', resources: { manpower: 3, industry: 3, capital: 3 }, terrain: 'forest' },
   estonia:         { name: 'Estonia',                region: 'europe', resources: { manpower: 1, industry: 2, capital: 1 }, terrain: 'forest' },
   latvia:          { name: 'Latvia',                 region: 'europe', resources: { manpower: 2, industry: 2, capital: 1 }, terrain: 'forest' },
   lithuania:       { name: 'Lithuania',              region: 'europe', resources: { manpower: 2, industry: 2, capital: 1 }, terrain: 'plains' },
-  belarus:         { name: 'Belarus',                region: 'europe', resources: { manpower: 3, industry: 2, capital: 1 }, terrain: 'forest' },
-  ukraine:         { name: 'Ukraine',                region: 'europe', resources: { manpower: 5, industry: 3, capital: 2 }, terrain: 'plains' },
+  belarus:         { name: 'Belarus',                region: 'europe', resources: { manpower: 3, industry: 2, capital: 2 }, terrain: 'forest' },
+  ukraine:         { name: 'Ukraine',                region: 'europe', resources: { manpower: 4, industry: 3, capital: 2 }, terrain: 'plains' },
   serbia:          { name: 'Serbia',                 region: 'europe', resources: { manpower: 2, industry: 2, capital: 1 }, terrain: 'forest' },
   croatia:         { name: 'Croatia',                region: 'europe', resources: { manpower: 2, industry: 2, capital: 2 }, terrain: 'coast' },
   bosnia:          { name: 'Bosnia and Herzegovina', region: 'europe', resources: { manpower: 1, industry: 2, capital: 1 }, terrain: 'mountains' },
@@ -37,16 +37,27 @@ export const TERRITORY_DATA = {
   slovenia:        { name: 'Slovenia',               region: 'europe', resources: { manpower: 1, industry: 2, capital: 2 }, terrain: 'mountains' },
   moldova:         { name: 'Moldova',                region: 'europe', resources: { manpower: 2, industry: 1, capital: 1 }, terrain: 'plains' },
   turkey:          { name: 'Turkey',                 region: 'europe', resources: { manpower: 4, industry: 3, capital: 3 }, terrain: 'plains' },
+  georgia:         { name: 'Georgia',                region: 'europe', resources: { manpower: 2, industry: 2, capital: 2 }, terrain: 'mountains' },
+  armenia:         { name: 'Armenia',                region: 'europe', resources: { manpower: 1, industry: 2, capital: 1 }, terrain: 'mountains' },
+  azerbaijan:      { name: 'Azerbaijan',             region: 'europe', resources: { manpower: 2, industry: 2, capital: 3 }, terrain: 'plains' },
+
+  // Russia (segmented — visually one polygon, mechanically 6 territories)
+  russia_west:     { name: 'Western Russia',         region: 'europe', resources: { manpower: 4, industry: 3, capital: 3 }, terrain: 'plains', russiaSegment: true },
+  russia_south:    { name: 'Southern Russia',        region: 'europe', resources: { manpower: 3, industry: 2, capital: 2 }, terrain: 'plains', russiaSegment: true },
+  russia_volga:    { name: 'Volga Region',           region: 'europe', resources: { manpower: 3, industry: 3, capital: 2 }, terrain: 'plains', russiaSegment: true },
+  russia_urals:    { name: 'Ural Region',            region: 'europe', resources: { manpower: 2, industry: 3, capital: 2 }, terrain: 'mountains', russiaSegment: true },
+  russia_siberia:  { name: 'Siberia',                region: 'europe', resources: { manpower: 2, industry: 2, capital: 3 }, terrain: 'forest', russiaSegment: true },
+  russia_far_east: { name: 'Russian Far East',       region: 'europe', resources: { manpower: 2, industry: 2, capital: 2 }, terrain: 'forest', russiaSegment: true },
 
   // Middle East
   syria:           { name: 'Syria',                  region: 'middle_east', resources: { manpower: 2, industry: 2, capital: 1 }, terrain: 'desert' },
-  iraq:            { name: 'Iraq',                   region: 'middle_east', resources: { manpower: 2, industry: 3, capital: 4 }, terrain: 'desert' },
-  iran:            { name: 'Iran',                   region: 'middle_east', resources: { manpower: 3, industry: 4, capital: 4 }, terrain: 'mountains' },
+  iraq:            { name: 'Iraq',                   region: 'middle_east', resources: { manpower: 2, industry: 3, capital: 2 }, terrain: 'desert' },
+  iran:            { name: 'Iran',                   region: 'middle_east', resources: { manpower: 3, industry: 3, capital: 2 }, terrain: 'mountains' },
   saudi_arabia:    { name: 'Saudi Arabia',           region: 'middle_east', resources: { manpower: 1, industry: 2, capital: 5 }, terrain: 'desert' },
   jordan:          { name: 'Jordan',                 region: 'middle_east', resources: { manpower: 1, industry: 1, capital: 2 }, terrain: 'desert' },
   lebanon:         { name: 'Lebanon',                region: 'middle_east', resources: { manpower: 2, industry: 2, capital: 3 }, terrain: 'coast' },
   israel:          { name: 'Israel',                 region: 'middle_east', resources: { manpower: 2, industry: 3, capital: 3 }, terrain: 'coast' },
-  egypt:           { name: 'Egypt',                  region: 'middle_east', resources: { manpower: 3, industry: 3, capital: 4 }, terrain: 'desert' },
+  egypt:           { name: 'Egypt',                  region: 'middle_east', resources: { manpower: 3, industry: 3, capital: 3 }, terrain: 'desert' },
   kuwait:          { name: 'Kuwait',                 region: 'middle_east', resources: { manpower: 1, industry: 1, capital: 5 }, terrain: 'desert' },
   uae:             { name: 'United Arab Emirates',   region: 'middle_east', resources: { manpower: 1, industry: 2, capital: 5 }, terrain: 'desert' },
   oman:            { name: 'Oman',                   region: 'middle_east', resources: { manpower: 1, industry: 2, capital: 3 }, terrain: 'desert' },
@@ -54,8 +65,8 @@ export const TERRITORY_DATA = {
   qatar:           { name: 'Qatar',                  region: 'middle_east', resources: { manpower: 1, industry: 1, capital: 5 }, terrain: 'desert' },
 
   // Asia — Central
-  kazakhstan:      { name: 'Kazakhstan',             region: 'asia', resources: { manpower: 3, industry: 3, capital: 4 }, terrain: 'steppe' },
-  uzbekistan:      { name: 'Uzbekistan',             region: 'asia', resources: { manpower: 2, industry: 2, capital: 2 }, terrain: 'desert' },
+  kazakhstan:      { name: 'Kazakhstan',             region: 'asia', resources: { manpower: 3, industry: 3, capital: 3 }, terrain: 'steppe' },
+  uzbekistan:      { name: 'Uzbekistan',             region: 'asia', resources: { manpower: 3, industry: 2, capital: 3 }, terrain: 'desert' },
   turkmenistan:    { name: 'Turkmenistan',           region: 'asia', resources: { manpower: 1, industry: 2, capital: 3 }, terrain: 'desert' },
   tajikistan:      { name: 'Tajikistan',             region: 'asia', resources: { manpower: 1, industry: 1, capital: 1 }, terrain: 'mountains' },
   kyrgyzstan:      { name: 'Kyrgyzstan',             region: 'asia', resources: { manpower: 1, industry: 1, capital: 1 }, terrain: 'mountains' },
@@ -63,9 +74,9 @@ export const TERRITORY_DATA = {
 
   // Asia — South
   pakistan:         { name: 'Pakistan',               region: 'asia', resources: { manpower: 4, industry: 3, capital: 2 }, terrain: 'plains' },
-  india:           { name: 'India',                  region: 'asia', resources: { manpower: 5, industry: 5, capital: 4 }, terrain: 'plains' },
+  india:           { name: 'India',                  region: 'asia', resources: { manpower: 4, industry: 3, capital: 3 }, terrain: 'plains' },
   nepal:           { name: 'Nepal',                  region: 'asia', resources: { manpower: 2, industry: 1, capital: 1 }, terrain: 'mountains' },
-  bangladesh:      { name: 'Bangladesh',             region: 'asia', resources: { manpower: 4, industry: 2, capital: 1 }, terrain: 'plains' },
+  bangladesh:      { name: 'Bangladesh',             region: 'asia', resources: { manpower: 2, industry: 2, capital: 2 }, terrain: 'plains' },
   sri_lanka:       { name: 'Sri Lanka',              region: 'asia', resources: { manpower: 2, industry: 2, capital: 2 }, terrain: 'coast' },
   myanmar:         { name: 'Myanmar',                region: 'asia', resources: { manpower: 3, industry: 2, capital: 2 }, terrain: 'forest' },
 
@@ -82,8 +93,8 @@ export const TERRITORY_DATA = {
   china:           { name: 'China',                  region: 'asia', resources: { manpower: 5, industry: 5, capital: 5 }, terrain: 'plains' },
   mongolia:        { name: 'Mongolia',               region: 'asia', resources: { manpower: 2, industry: 1, capital: 2 }, terrain: 'steppe' },
   north_korea:     { name: 'North Korea',            region: 'asia', resources: { manpower: 1, industry: 2, capital: 1 }, terrain: 'mountains' },
-  south_korea:     { name: 'South Korea',            region: 'asia', resources: { manpower: 2, industry: 4, capital: 4 }, terrain: 'coast' },
-  japan:           { name: 'Japan',                  region: 'asia', resources: { manpower: 3, industry: 5, capital: 5 }, terrain: 'coast' },
+  south_korea:     { name: 'South Korea',            region: 'asia', resources: { manpower: 3, industry: 3, capital: 3 }, terrain: 'coast' },
+  japan:           { name: 'Japan',                  region: 'asia', resources: { manpower: 3, industry: 4, capital: 3 }, terrain: 'coast' },
   taiwan:          { name: 'Taiwan',                 region: 'asia', resources: { manpower: 2, industry: 4, capital: 4 }, terrain: 'coast' },
 };
 
@@ -111,12 +122,12 @@ export const ADJACENCY = {
   denmark:         ['germany', 'sweden', 'norway'],
   sweden:          ['norway', 'finland', 'denmark'],
   norway:          ['sweden', 'finland', 'denmark'],
-  finland:         ['sweden', 'norway', 'estonia'],
-  estonia:         ['finland', 'latvia'],
-  latvia:          ['estonia', 'lithuania'],
+  finland:         ['sweden', 'norway', 'estonia', 'russia_west'],
+  estonia:         ['finland', 'latvia', 'russia_west'],
+  latvia:          ['estonia', 'lithuania', 'russia_west'],
   lithuania:       ['latvia', 'poland', 'belarus'],
-  belarus:         ['lithuania', 'poland', 'ukraine'],
-  ukraine:         ['poland', 'slovakia', 'hungary', 'romania', 'moldova', 'belarus'],
+  belarus:         ['lithuania', 'poland', 'ukraine', 'russia_west'],
+  ukraine:         ['poland', 'slovakia', 'hungary', 'romania', 'moldova', 'belarus', 'russia_west', 'russia_south'],
   serbia:          ['hungary', 'romania', 'bulgaria', 'north_macedonia', 'albania', 'montenegro', 'bosnia', 'croatia'],
   croatia:         ['slovenia', 'hungary', 'serbia', 'bosnia', 'montenegro'],
   bosnia:          ['croatia', 'serbia', 'montenegro'],
@@ -125,12 +136,23 @@ export const ADJACENCY = {
   north_macedonia: ['serbia', 'bulgaria', 'greece', 'albania'],
   slovenia:        ['italy', 'austria', 'hungary', 'croatia'],
   moldova:         ['romania', 'ukraine'],
-  turkey:          ['bulgaria', 'greece', 'syria', 'iraq', 'iran'],
+  turkey:          ['bulgaria', 'greece', 'syria', 'iraq', 'iran', 'georgia', 'armenia'],
+  georgia:         ['turkey', 'armenia', 'azerbaijan', 'russia_south'],
+  armenia:         ['turkey', 'georgia', 'azerbaijan', 'iran'],
+  azerbaijan:      ['georgia', 'armenia', 'iran', 'russia_south'],
+
+  // Russia (segmented)
+  russia_west:     ['finland', 'estonia', 'latvia', 'belarus', 'ukraine', 'russia_south', 'russia_volga'],
+  russia_south:    ['ukraine', 'georgia', 'azerbaijan', 'russia_west', 'russia_volga'],
+  russia_volga:    ['russia_west', 'russia_south', 'russia_urals', 'kazakhstan'],
+  russia_urals:    ['russia_volga', 'russia_siberia', 'kazakhstan'],
+  russia_siberia:  ['russia_urals', 'russia_far_east', 'kazakhstan', 'mongolia', 'china'],
+  russia_far_east: ['russia_siberia', 'china', 'mongolia', 'north_korea'],
 
   // Middle East
   syria:           ['turkey', 'iraq', 'jordan', 'israel', 'lebanon'],
   iraq:            ['turkey', 'syria', 'jordan', 'saudi_arabia', 'kuwait', 'iran'],
-  iran:            ['turkey', 'iraq', 'kuwait', 'uae', 'oman', 'afghanistan', 'turkmenistan', 'pakistan'],
+  iran:            ['turkey', 'iraq', 'kuwait', 'uae', 'oman', 'afghanistan', 'turkmenistan', 'pakistan', 'armenia', 'azerbaijan'],
   saudi_arabia:    ['iraq', 'jordan', 'kuwait', 'qatar', 'uae', 'oman', 'yemen', 'egypt'],
   jordan:          ['syria', 'iraq', 'saudi_arabia', 'israel', 'egypt'],
   lebanon:         ['syria', 'israel'],
@@ -143,7 +165,7 @@ export const ADJACENCY = {
   qatar:           ['saudi_arabia', 'uae'],
 
   // Asia — Central
-  kazakhstan:      ['uzbekistan', 'turkmenistan', 'kyrgyzstan', 'china', 'mongolia'],
+  kazakhstan:      ['uzbekistan', 'turkmenistan', 'kyrgyzstan', 'china', 'mongolia', 'russia_volga', 'russia_urals', 'russia_siberia'],
   uzbekistan:      ['kazakhstan', 'turkmenistan', 'tajikistan', 'kyrgyzstan', 'afghanistan'],
   turkmenistan:    ['kazakhstan', 'uzbekistan', 'iran', 'afghanistan'],
   tajikistan:      ['uzbekistan', 'kyrgyzstan', 'china', 'afghanistan'],
@@ -168,9 +190,9 @@ export const ADJACENCY = {
   philippines:     ['indonesia', 'taiwan'],
 
   // Asia — East
-  china:           ['mongolia', 'north_korea', 'vietnam', 'laos', 'myanmar', 'india', 'nepal', 'pakistan', 'afghanistan', 'kyrgyzstan', 'tajikistan', 'kazakhstan', 'taiwan'],
-  mongolia:        ['china', 'kazakhstan'],
-  north_korea:     ['china', 'south_korea'],
+  china:           ['mongolia', 'north_korea', 'vietnam', 'laos', 'myanmar', 'india', 'nepal', 'pakistan', 'afghanistan', 'kyrgyzstan', 'tajikistan', 'kazakhstan', 'taiwan', 'russia_siberia', 'russia_far_east'],
+  mongolia:        ['china', 'kazakhstan', 'russia_siberia', 'russia_far_east'],
+  north_korea:     ['china', 'south_korea', 'russia_far_east'],
   south_korea:     ['north_korea', 'japan'],
   japan:           ['south_korea', 'taiwan'],
   taiwan:          ['china', 'japan', 'philippines'],
@@ -232,6 +254,17 @@ export const TERRITORY_CENTROIDS = {
   slovenia:        [46.1, 14.8],
   moldova:         [47.2, 28.5],
   turkey:          [39.9, 32.8],
+  georgia:         [42.3, 43.4],
+  armenia:         [40.1, 44.5],
+  azerbaijan:      [40.4, 49.9],
+
+  // Russia (segmented)
+  russia_west:     [56.0, 38.0],
+  russia_south:    [45.5, 42.0],
+  russia_volga:    [54.0, 50.0],
+  russia_urals:    [57.0, 60.0],
+  russia_siberia:  [58.0, 85.0],
+  russia_far_east: [55.0, 130.0],
 
   // Middle East
   syria:           [35.0, 38.5],
@@ -281,3 +314,8 @@ export const TERRITORY_CENTROIDS = {
   japan:           [36.2, 138.3],
   taiwan:          [23.7, 121.0],
 };
+
+export const RUSSIA_SEGMENTS = [
+  'russia_west', 'russia_south', 'russia_volga',
+  'russia_urals', 'russia_siberia', 'russia_far_east',
+];

@@ -1,7 +1,7 @@
 import { MAP_CONFIG } from './MapTheme.js';
 import { TerritoryLayer } from './TerritoryLayer.js';
 import { ArmyLayer } from './ArmyLayer.js';
-import { TERRITORY_DATA } from '../data/territories.js';
+import { TERRITORY_DATA, RUSSIA_SEGMENTS } from '../data/territories.js';
 
 export class MapController {
   constructor(containerId, preset) {
@@ -45,6 +45,8 @@ export class MapController {
           .filter(([, data]) => regions.includes(data.region))
           .map(([tid]) => tid)
       );
+      const hasRussiaSegments = RUSSIA_SEGMENTS.some(id => activeIds.has(id));
+      if (hasRussiaSegments) activeIds.add('russia');
       geojson.features = geojson.features.filter(f => activeIds.has(f.properties.id));
     }
 

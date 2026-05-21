@@ -1,5 +1,5 @@
 import { getEmpireTerritories, getEmpireArmies, getRelation } from '../engine/GameState.js';
-import { ADJACENCY } from '../data/territories.js';
+import { ADJACENCY, RUSSIA_SEGMENTS } from '../data/territories.js';
 
 export class PromptBuilder {
   buildSystem(empire) {
@@ -55,6 +55,9 @@ ECONOMY & INFRASTRUCTURE:
   upkeep (double normal). If you go bankrupt, mercs desert.
 - You can BUY MANPOWER: spend 3 capital per manpower for this turn. Max 5 per action. Temporary — not permanent.
 - Regular recruitment costs 3 capital per division and is limited by territory industry.
+
+REGION BONUSES:
+- RUSSIA: If one state controls ALL six Russian segments (Western Russia, Southern Russia, Volga Region, Ural Region, Siberia, Russian Far East), they receive +5 capital and +3 manpower per turn. This is a massive strategic advantage worth fighting for (or preventing) - keep your eyes on Russia.
 
 STRATEGIC PRIORITIES:
 - A state that loses ALL its territories is ELIMINATED from the game permanently. If an enemy is down to 1-2 territories, they are on the brink of collapse — finishing them off removes a competitor forever and gives you their land. This is almost always worth prioritizing.
@@ -218,6 +221,24 @@ RESPONSE SCHEMA:
         const t = gameState.territories[e.affectedTerritoryId];
         prompt += `  - ${e.name} in ${t ? t.name : 'unknown'} (expires turn ${e.expiresOnTurn})\n`;
       });
+      prompt += '\n';
+    }
+
+    const russiaSegments = RUSSIA_SEGMENTS;
+    const russiaOwnership = {};
+    for (const segId of russiaSegments) {
+      const seg = gameState.territories[segId];
+      if (seg && seg.ownerId) {
+        russiaOwnership[seg.ownerId] = (russiaOwnership[seg.ownerId] || 0) + 1;
+      }
+    }
+    const russiaEntries = Object.entries(russiaOwnership).sort((a, b) => b[1] - a[1]);
+    if (russiaEntries.length > 0) {
+      prompt += `RUSSIA CONTROL (6 segments total — hold all for +5 capital, +3 manpower/turn):\n`;
+      for (const [eid, count] of russiaEntries) {
+        const ename = gameState.empires[eid]?.name || eid;
+        prompt += `  - ${ename}: ${count}/6 segments${count === 6 ? ' ⚠️ FULL CONTROL — receiving bonus!' : ''}\n`;
+      }
       prompt += '\n';
     }
 

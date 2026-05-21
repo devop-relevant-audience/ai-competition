@@ -727,7 +727,6 @@ body {
    ═══════════════════════════════════════════ */
 
 .bottom-bar {
-  height: var(--bottom-height);
   background: var(--surface-1);
   border-top: 1px solid var(--hairline);
   display: flex;
@@ -740,10 +739,9 @@ body {
   align-items: center;
   gap: var(--sp-sm);
   padding: var(--sp-sm) var(--sp-lg);
-  min-width: 400px;
-  border-right: 1px solid var(--hairline);
   flex-wrap: wrap;
   align-content: center;
+  width: 100%;
 }
 
 .turn-info {
@@ -913,8 +911,9 @@ body {
 
 .event-log-area {
   flex: 1;
-  padding: var(--sp-sm) var(--sp-md);
+  padding: var(--sp-sm) 0;
   overflow-y: auto;
+  height: 100%;
 }
 
 .event-log-header {

@@ -69,35 +69,13 @@ export class OverseersPanel {
 
   _initResizeHandles() {
     const panelHandle = document.getElementById('resize-panel');
-    const bottomHandle = document.getElementById('resize-bottom');
     const rightPanel = document.getElementById('right-panel');
-    const bottomBar = document.getElementById('bottom-bar');
 
     if (panelHandle && rightPanel) {
       this._makeDraggable(panelHandle, 'col', (delta) => {
         const current = rightPanel.offsetWidth;
         const next = Math.max(280, Math.min(700, current - delta));
         rightPanel.style.width = next + 'px';
-      });
-    }
-
-    if (bottomHandle && bottomBar) {
-      this._makeDraggable(bottomHandle, 'row', (delta) => {
-        const current = bottomBar.offsetHeight;
-        const next = Math.max(100, Math.min(400, current - delta));
-        bottomBar.style.height = next + 'px';
-      });
-    }
-
-    const bottomSplitHandle = document.getElementById('resize-bottom-split');
-    const turnControls = document.getElementById('turn-controls');
-
-    if (bottomSplitHandle && turnControls) {
-      this._makeDraggable(bottomSplitHandle, 'col', (delta) => {
-        const current = turnControls.offsetWidth;
-        const next = Math.max(280, Math.min(600, current + delta));
-        turnControls.style.minWidth = next + 'px';
-        turnControls.style.width = next + 'px';
       });
     }
   }

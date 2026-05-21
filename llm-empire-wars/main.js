@@ -1,7 +1,7 @@
 import { createInitialState } from './engine/GameState.js';
 import { GameEngine } from './engine/GameEngine.js';
 import { AIController } from './ai/AIController.js';
-import { OpenRouterConfig } from './ai/OpenRouterClient.js';
+import { DeepSeekConfig } from './ai/OpenRouterClient.js';
 import { MapController } from './map/MapController.js';
 import { OverseersPanel } from './ui/OverseersPanel.js';
 import { DiplomacyEditor } from './ui/DiplomacyEditor.js';
@@ -98,11 +98,11 @@ class App {
     const errorEl = document.getElementById('setup-error');
 
     if (!apiKey) {
-      errorEl.textContent = 'Please enter your OpenRouter API key.';
+      errorEl.textContent = 'Please enter your DeepSeek API key.';
       return;
     }
 
-    OpenRouterConfig.apiKey = apiKey;
+    DeepSeekConfig.apiKey = apiKey;
     this.saveManager.saveApiKey(apiKey);
 
     document.getElementById('setup-screen').classList.add('hidden');
@@ -119,7 +119,7 @@ class App {
     const errorEl = document.getElementById('setup-error');
 
     if (!apiKey) {
-      errorEl.textContent = 'Please enter your OpenRouter API key to continue.';
+      errorEl.textContent = 'Please enter your DeepSeek API key to continue.';
       return;
     }
 
@@ -129,7 +129,7 @@ class App {
       return;
     }
 
-    OpenRouterConfig.apiKey = apiKey;
+    DeepSeekConfig.apiKey = apiKey;
     this.saveManager.saveApiKey(apiKey);
 
     document.getElementById('setup-screen').classList.add('hidden');

@@ -1,15 +1,17 @@
-export const OpenRouterConfig = {
+export const DeepSeekConfig = {
   apiKey: '',
-  baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
-  model: 'deepseek/deepseek-v4-flash',
+  baseUrl: 'https://api.deepseek.com/chat/completions',
+  model: 'deepseek-v4-flash',
 };
+
+export const OpenRouterConfig = DeepSeekConfig;
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1500;
 
 export async function callAI(systemPrompt, userPrompt, options = {}) {
   let lastError = null;
-  const model = options.model || OpenRouterConfig.model;
+  const model = options.model || DeepSeekConfig.model;
 
   const body = {
     model,
@@ -18,18 +20,17 @@ export async function callAI(systemPrompt, userPrompt, options = {}) {
       { role: 'user', content: userPrompt },
     ],
     response_format: { type: 'json_object' },
+    stream: false,
   };
   if (options.maxTokens) body.max_tokens = options.maxTokens;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(OpenRouterConfig.baseUrl, {
+      const response = await fetch(DeepSeekConfig.baseUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${OpenRouterConfig.apiKey}`,
+          'Authorization': `Bearer ${DeepSeekConfig.apiKey}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.href,
-          'X-Title': 'LLM Empire Wars',
         },
         body: JSON.stringify(body),
       });
@@ -42,17 +43,17 @@ export async function callAI(systemPrompt, userPrompt, options = {}) {
 
       if (!response.ok) {
         const respBody = await response.text();
-        throw new Error(`OpenRouter API error ${response.status}: ${respBody}`);
+        throw new Error(`DeepSeek API error ${response.status}: ${respBody}`);
       }
 
       const data = await response.json();
       if (data.error) {
-        throw new Error(`OpenRouter error: ${data.error.message || JSON.stringify(data.error)}`);
+        throw new Error(`DeepSeek error: ${data.error.message || JSON.stringify(data.error)}`);
       }
 
       const content = data.choices?.[0]?.message?.content;
       if (!content) {
-        throw new Error('Empty response from OpenRouter');
+        throw new Error('Empty response from DeepSeek');
       }
 
       return content;

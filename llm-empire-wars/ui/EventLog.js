@@ -21,6 +21,7 @@ const EVENT_ICONS = {
 
 const FILTER_CATEGORIES = {
   all: { label: 'All Events', types: null },
+  combat_diplomacy: { label: 'Combat + Diplomacy', types: ['battle', 'territory_captured', 'elimination', 'war_declared', 'peace_declared', 'trade_established', 'alliance_formed', 'alliance_broken', 'betrayal', 'propose_trade', 'propose_alliance', 'propose_peace', 'proposal_rejected'] },
   combat: { label: 'Combat', types: ['battle', 'territory_captured', 'elimination'] },
   diplomacy: { label: 'Diplomacy', types: ['war_declared', 'peace_declared', 'trade_established', 'alliance_formed', 'alliance_broken', 'betrayal', 'propose_trade', 'propose_alliance', 'propose_peace', 'proposal_rejected'] },
   military: { label: 'Military', types: ['recruitment', 'army_moved', 'attrition'] },
