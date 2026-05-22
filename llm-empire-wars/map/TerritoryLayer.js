@@ -1,5 +1,5 @@
 import { getTerritoryStyle, getHighlightStyle } from './MapTheme.js';
-import { RUSSIA_SEGMENTS } from '../data/territories.js';
+import { RUSSIA_SEGMENTS, TERRITORY_DATA } from '../data/territories.js';
 
 export class TerritoryLayer {
   constructor(map) {
@@ -128,7 +128,11 @@ export class TerritoryLayer {
     html += `<span>Capital: ${territory.resources.capital}</span>`;
     html += `</div>`;
     if (territory.terrain) {
-      html += `<div style="color: var(--ink-tertiary); font-size: 11px; margin-top: 4px;">Terrain: ${territory.terrain}</div>`;
+      const terrData = TERRITORY_DATA[tid];
+      const resLabel = terrData?.rareResource
+        ? ` — <span style="color: #f5a623; font-weight: 600;">${terrData.rareResource.toUpperCase().replace('_', ' ')}</span>`
+        : '';
+      html += `<div style="color: var(--ink-tertiary); font-size: 11px; margin-top: 4px;">Terrain: ${territory.terrain}${resLabel}</div>`;
     }
     const buildingNames = Object.keys(territory.buildings || {}).filter(b => territory.buildings[b]);
     if (buildingNames.length > 0) {

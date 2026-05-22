@@ -1,5 +1,6 @@
 import { TERRITORY_DATA, ADJACENCY } from '../data/territories.js';
 import { EMPIRE_DEFINITIONS } from '../data/empires.js';
+import { RESOURCE_IDS } from '../data/resources.js';
 
 export function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -19,6 +20,10 @@ export function createInitialState(config = {}) {
 
   const empires = {};
   activeEmpireDefs.forEach(def => {
+    const resources = {};
+    for (const rid of RESOURCE_IDS) {
+      resources[rid] = { income: 0, stockpile: 0 };
+    }
     empires[def.id] = {
       id: def.id,
       name: def.name,
@@ -30,6 +35,11 @@ export function createInitialState(config = {}) {
       treasury: 20,
       confidence: 50,
       isEliminated: false,
+      resources,
+      techs: {
+        completed: [],
+        inProgress: {},
+      },
     };
   });
 

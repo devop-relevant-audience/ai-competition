@@ -1,4 +1,22 @@
 import { getEmpireTerritories, getEmpireArmies, getTotalTerritories, getRelation } from '../engine/GameState.js';
+import { RESOURCE_DEFS, RESOURCE_IDS } from '../data/resources.js';
+import { TECH_DEFS, TECH_BRANCHES } from '../data/techs.js';
+
+const RESOURCE_ICONS = {
+  oil: '🛢',
+  uranium: '☢',
+  rare_earths: '💎',
+  titanium: '⚙',
+};
+
+const BRANCH_TECHS = {};
+for (const [tid, td] of Object.entries(TECH_DEFS)) {
+  if (!BRANCH_TECHS[td.branch]) BRANCH_TECHS[td.branch] = [];
+  BRANCH_TECHS[td.branch].push({ id: tid, tier: td.tier });
+}
+for (const b of Object.keys(BRANCH_TECHS)) {
+  BRANCH_TECHS[b].sort((a, b2) => a.tier - b2.tier);
+}
 
 export class EmpireStats {
   constructor(container) {
@@ -34,6 +52,9 @@ export class EmpireStats {
         .filter(Boolean)
         .join('');
 
+      const resourceHtml = this._buildResourceRow(e);
+      const techHtml = this._buildTechDots(e);
+
       return `
       <div class="es-card${isLeader ? ' es-leader' : ''}${elim ? ' es-elim' : ''}">
         <div class="es-top">
@@ -52,9 +73,47 @@ export class EmpireStats {
           <span class="es-n" title="Capital income">${s.capitalIncome} <i>inc</i></span>
           <span class="es-n" title="Confidence">${e.confidence} <i>conf</i></span>
         </div>
+        ${resourceHtml}
+        ${techHtml}
         ${rels ? `<div class="es-rels">${rels}</div>` : ''}
       </div>`;
     }).join('');
+  }
+
+  _buildResourceRow(empire) {
+    if (!empire.resources) return '';
+    const items = RESOURCE_IDS.map(rid => {
+      const r = empire.resources[rid];
+      const icon = RESOURCE_ICONS[rid] || '?';
+      const stockpile = r.stockpile || 0;
+      const income = r.income || 0;
+      if (stockpile === 0 && income === 0) return '';
+      return `<span class="es-res" title="${RESOURCE_DEFS[rid].label}: ${stockpile} (+${income}/turn)">${icon}${stockpile}</span>`;
+    }).filter(Boolean).join('');
+    if (!items) return '';
+    return `<div class="es-resources">${items}</div>`;
+  }
+
+  _buildTechDots(empire) {
+    if (!empire.techs) return '';
+    const completed = empire.techs.completed || [];
+    const inProgress = empire.techs.inProgress || {};
+
+    const branches = Object.entries(TECH_BRANCHES).map(([branchId, branch]) => {
+      const techs = BRANCH_TECHS[branchId] || [];
+      const dots = techs.map(t => {
+        if (completed.includes(t.id)) {
+          return `<span class="es-tech-dot es-tech-done" style="background:${branch.color}" title="${TECH_DEFS[t.id].label} ✓"></span>`;
+        }
+        if (inProgress[t.id]) {
+          return `<span class="es-tech-dot es-tech-wip" style="border-color:${branch.color}" title="${TECH_DEFS[t.id].label} (researching)"></span>`;
+        }
+        return `<span class="es-tech-dot es-tech-locked" title="${TECH_DEFS[t.id].label}"></span>`;
+      }).join('');
+      return `<span class="es-tech-branch" title="${branch.label}">${dots}</span>`;
+    }).join('');
+
+    return `<div class="es-techs">${branches}</div>`;
   }
 
   _esc(text) {

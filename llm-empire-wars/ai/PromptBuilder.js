@@ -1,5 +1,8 @@
 import { getEmpireTerritories, getEmpireArmies, getRelation, findTradeRoute, computeChokepointTolls } from '../engine/GameState.js';
 import { ADJACENCY, RUSSIA_SEGMENTS, TERRITORY_DATA } from '../data/territories.js';
+import { RESOURCE_DEFS, RESOURCE_IDS } from '../data/resources.js';
+import { TECH_DEFS, TECH_BRANCHES } from '../data/techs.js';
+import { ResearchEngine } from '../engine/ResearchEngine.js';
 
 /**
  * Events shown to ALL empires regardless of involvement.
@@ -38,6 +41,9 @@ const SELF_RELEVANT_EVENTS = new Set([
   'foreign_investment',
   'infrastructure_collapse',
   'population_boom',
+  'research_started',
+  'research_completed',
+  'research_cancelled',
 ]);
 
 export class PromptBuilder {
@@ -112,8 +118,27 @@ ECONOMY & INFRASTRUCTURE:
   - Trade Office (10 capital): +2 capital income in territory
   - Arms Factory (8 capital): +2 industry (increases recruitment cap by +1)
   - Bunker (12 capital): +0.3 defense bonus for defenders
+  - Research Lab (12 capital): enables 1 concurrent research project in this territory
 - Regular recruitment costs 3 capital per division and is limited by territory industry.
 - You can recruit MERCENARIES by adding "mercenary": true to a recruit_units action. Mercs cost 6 capital/unit (double), max 3/action. Mercs don't consume manpower but cost 1 capital/unit upkeep (double normal). If you go bankrupt, mercs desert.
+
+RARE RESOURCES:
+- Some territories contain rare resources: Oil, Uranium, Rare Earths, or Titanium.
+- Each resource territory you control gives +1 of that resource/turn to your stockpile AND +1 capital/turn as an economic bonus.
+- Resources are spent to research technologies. Control resource-rich territories to fuel your tech tree!
+- Resource territories are marked with [OIL], [URANIUM], [RARE_EARTHS], or [TITANIUM] tags in territory listings.
+
+TECHNOLOGY:
+- Build a Research Lab, then use the "research" action to begin researching technologies.
+- Tech tree has 3 branches (Iron Fist / All-Seeing Eye / Dark Hand), each with 3 tiers.
+- Each tech costs capital + specific resources and takes multiple turns to complete.
+- You can only research one tech per Research Lab at a time.
+- If your lab territory is captured, the research is cancelled (no refund).
+- If the lab territory has a matching rare resource, research completes 1 turn faster.
+- Higher-tier techs require completing the previous tier first.
+- Technologies unlock powerful new buildings and actions in future phases.
+- Research action: { "type": "research", "tech_id": "mechanized_infantry" }
+  Optionally specify "lab_territory_id" — if omitted, an available lab is auto-selected.
 
 REGION BONUSES:
 - RUSSIA: If one state controls ALL six Russian segments (Western Russia, Southern Russia, Volga Region, Ural Region, Siberia, Russian Far East), they receive +5 capital and +3 manpower per turn. This is a massive strategic advantage worth fighting for (or preventing) - keep your eyes on Russia.
@@ -132,7 +157,8 @@ RESPONSE SCHEMA:
     // Array of 1-5 action objects. Each action has a "type" and type-specific fields:
     // { "type": "move_army", "army_id": "string", "to": "territory_id" }
     // { "type": "recruit_units", "territory_id": "string", "amount": number, "mercenary": true (optional — costs 6c/unit, max 3, no manpower needed) }
-    // { "type": "build", "territory_id": "string", "building": "housing|trade_office|factory|bunker" }
+    // { "type": "build", "territory_id": "string", "building": "housing|trade_office|factory|bunker|research_lab" }
+    // { "type": "research", "tech_id": "string", "lab_territory_id": "string (optional)" }
     // { "type": "declare_war", "target_empire_id": "string" }
     // { "type": "propose_peace", "target_empire_id": "string" }
     // { "type": "propose_trade", "target_empire_id": "string" }
@@ -159,6 +185,18 @@ RESPONSE SCHEMA:
     prompt += `Confidence: ${empire.confidence}/100 — ${confidenceMood.label}. ${confidenceMood.hint}\n`;
     prompt += `Territories: ${territories.length} | Total divisions: ${armies.reduce((s, a) => s + a.size, 0)} units\n\n`;
 
+    if (empire.resources) {
+      prompt += `RESOURCES:\n`;
+      for (const rid of RESOURCE_IDS) {
+        const r = empire.resources[rid];
+        const def = RESOURCE_DEFS[rid];
+        const sourceTerrs = territories.filter(t => TERRITORY_DATA[t.id]?.rareResource === rid);
+        const sourceNames = sourceTerrs.map(t => t.name).join(', ');
+        prompt += `  ${def.label}: ${r.income}/turn${sourceNames ? ` (${sourceNames})` : ''} | Stockpile: ${r.stockpile}\n`;
+      }
+      prompt += '\n';
+    }
+
     prompt += `YOUR TERRITORIES:\n`;
     let empTotalManpower = 0;
     territories.forEach(t => {
@@ -167,7 +205,9 @@ RESPONSE SCHEMA:
       const buildStr = bNames.length > 0 ? ` | Infrastructure: ${bNames.map(b => b.charAt(0).toUpperCase() + b.slice(1).replace('_', ' ')).join(', ')}` : '';
       const effectiveManpower = t.resources.manpower + (t.buildings?.housing ? 2 : 0);
       empTotalManpower += effectiveManpower;
-      prompt += `  - ${t.name} (${t.id})${isCapital}: manpower=${t.resources.manpower} industry=${t.resources.industry} capital=${t.resources.capital} [${t.terrain}]${buildStr}\n`;
+      const terrData = TERRITORY_DATA[t.id];
+      const resTag = terrData?.rareResource ? ` [${terrData.rareResource.toUpperCase()}]` : '';
+      prompt += `  - ${t.name} (${t.id})${isCapital}: manpower=${t.resources.manpower} industry=${t.resources.industry} capital=${t.resources.capital} [${t.terrain}]${resTag}${buildStr}\n`;
     });
     prompt += '\n';
 
@@ -176,6 +216,51 @@ RESPONSE SCHEMA:
     const manpowerSurplus = empTotalManpower - regularUnits;
     const armyUpkeep = Math.floor(regularUnits * 0.5) + (mercUnits * 1);
     prompt += `MANPOWER BALANCE: ${empTotalManpower} manpower / ${regularUnits} regular divisions (surplus: ${manpowerSurplus >= 0 ? '+' : ''}${manpowerSurplus}) | Military upkeep: ${armyUpkeep} capital/turn\n\n`;
+
+    if (empire.techs) {
+      prompt += `TECHNOLOGY:\n`;
+      const researchEngine = new ResearchEngine();
+      const completed = empire.techs.completed || [];
+      const inProgress = empire.techs.inProgress || {};
+
+      if (completed.length > 0) {
+        const completedStr = completed.map(tid => {
+          const td = TECH_DEFS[tid];
+          return td ? `${td.label} (${td.description})` : tid;
+        }).join(', ');
+        prompt += `  Completed: ${completedStr}\n`;
+      }
+
+      for (const [techId, progress] of Object.entries(inProgress)) {
+        const td = TECH_DEFS[techId];
+        const labName = gameState.territories[progress.labTerritoryId]?.name || progress.labTerritoryId;
+        prompt += `  Researching: ${td?.label || techId} (completes turn ${progress.completesTurn}, lab in ${labName})\n`;
+      }
+
+      const available = Object.entries(TECH_DEFS).filter(([tid]) =>
+        !completed.includes(tid) && !inProgress[tid] && researchEngine.canResearch(empire, tid)
+      );
+      if (available.length > 0) {
+        for (const [tid, td] of available) {
+          const costParts = Object.entries(td.cost).map(([k, v]) => `${v} ${k}`).join(' + ');
+          prompt += `  Available: ${td.label} (cost: ${costParts}, ${td.researchTurns} turns)\n`;
+        }
+      }
+
+      const locked = Object.entries(TECH_DEFS).filter(([tid]) =>
+        !completed.includes(tid) && !inProgress[tid] && !researchEngine.canResearch(empire, tid)
+      );
+      if (locked.length > 0) {
+        for (const [tid, td] of locked) {
+          const reason = td.prerequisite && !completed.includes(td.prerequisite)
+            ? `requires: ${TECH_DEFS[td.prerequisite]?.label || td.prerequisite}`
+            : 'insufficient resources';
+          prompt += `  Locked: ${td.label} (${reason})\n`;
+        }
+      }
+
+      prompt += '\n';
+    }
 
     prompt += `YOUR DIVISIONS:\n`;
     armies.forEach(a => {
@@ -295,7 +380,8 @@ RESPONSE SCHEMA:
     if (visible.length > 0) {
       prompt += `NEIGHBORING TERRITORIES YOU CAN SEE:\n`;
       visible.forEach(v => {
-        prompt += `  - ${v.name} (${v.id}): owned by ${v.ownerName} | ${v.armyInfo} [${v.terrain}]\n`;
+        const resTag = v.rareResource ? ` [${v.rareResource.toUpperCase()}]` : '';
+        prompt += `  - ${v.name} (${v.id}): owned by ${v.ownerName} | ${v.armyInfo} [${v.terrain}]${resTag}\n`;
       });
       prompt += '\n';
     }
@@ -460,6 +546,7 @@ RESPONSE FORMAT:
       const owner = t.ownerId ? gameState.empires[t.ownerId] : null;
       const armies = Object.values(gameState.armies).filter(a => a.locationId === tid);
       const armyInfo = armies.length > 0 ? `armies present (${armies.length} groups)` : 'no armies';
+      const terrData = TERRITORY_DATA[tid];
 
       return {
         id: tid,
@@ -467,6 +554,7 @@ RESPONSE FORMAT:
         terrain: t.terrain,
         ownerName: owner ? owner.name : 'Neutral',
         armyInfo,
+        rareResource: terrData?.rareResource || null,
       };
     }).filter(Boolean);
   }

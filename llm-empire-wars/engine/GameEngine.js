@@ -3,6 +3,7 @@ import { CombatResolver, rollBuildingDestruction } from './CombatResolver.js';
 import { DiplomacyEngine } from './DiplomacyEngine.js';
 import { EconomyEngine } from './EconomyEngine.js';
 import { EventSystem } from './EventSystem.js';
+import { ResearchEngine } from './ResearchEngine.js';
 import { ADJACENCY } from '../data/territories.js';
 
 export class GameEngine {
@@ -11,6 +12,7 @@ export class GameEngine {
     this.diplomacy = new DiplomacyEngine();
     this.economy = new EconomyEngine();
     this.events = new EventSystem();
+    this.research = new ResearchEngine();
   }
 
   resolveTurn(currentState) {
@@ -23,6 +25,7 @@ export class GameEngine {
     const warActions = {};
     const buildActions = {};
     const recruitActions = {};
+    const researchActions = {};
     const moveActions = {};
     const otherActions = {};
 
@@ -34,6 +37,7 @@ export class GameEngine {
       embargoActions[empireId] = actions.filter(a => a.type === 'impose_embargo' || a.type === 'lift_embargo');
       buildActions[empireId] = actions.filter(a => a.type === 'build');
       recruitActions[empireId] = actions.filter(a => a.type === 'recruit_units');
+      researchActions[empireId] = actions.filter(a => a.type === 'research');
       moveActions[empireId] = actions.filter(a => a.type === 'move_army');
       otherActions[empireId] = actions.filter(a =>
         ['propose_trade', 'propose_alliance', 'propose_peace', 'send_message'].includes(a.type)
@@ -46,6 +50,7 @@ export class GameEngine {
 
     allEvents.push(...this.economy.processBuilding(state, buildActions));
     allEvents.push(...this.economy.processRecruitment(state, recruitActions));
+    allEvents.push(...this.research.processResearchActions(state, researchActions));
 
     for (const [empireId, actions] of Object.entries(moveActions)) {
       for (const action of actions) {
@@ -60,6 +65,8 @@ export class GameEngine {
     const combatEvents = this.combat.resolve(state);
     allEvents.push(...combatEvents);
 
+    allEvents.push(...this.research.updateResearch(state));
+    this.research.updateResourceIncome(state);
     allEvents.push(...this.economy.updateEconomy(state));
 
     const worldEvents = this.events.rollEvents(state);

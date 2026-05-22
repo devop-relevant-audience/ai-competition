@@ -32,6 +32,7 @@
         <div class="setup-empires" id="setup-empires"></div>
         <button id="start-game-btn" class="btn-primary" disabled>Start Simulation</button>
         <button id="continue-game-btn" class="btn-primary btn-continue hidden">Continue Saved Game</button>
+        <button id="setup-balance-btn" class="btn-secondary">Balance Dashboard</button>
         <span id="continue-save-info" class="continue-save-info hidden"></span>
         <p class="setup-error" id="setup-error"></p>
       </div>
@@ -58,7 +59,9 @@
             <button class="panel-tab" data-tab="reasoning">Reasoning</button>
             <button class="panel-tab" data-tab="diplomacy">Diplomacy</button>
             <button class="panel-tab" data-tab="messages">Messages</button>
+            <button class="panel-tab" data-tab="tech">Tech</button>
             <button class="panel-tab panel-tab-action" data-action="analytics">Analytics</button>
+            <button class="panel-tab panel-tab-action" data-action="balance">Balance</button>
           </div>
 
           <!-- Tab Content -->
@@ -79,6 +82,9 @@
           </div>
           <div class="panel-section panel-tab-content" id="tab-messages" data-tab-content="messages">
             <div id="messages-feed"></div>
+          </div>
+          <div class="panel-section panel-tab-content" id="tab-tech" data-tab-content="tech">
+            <div id="tech-tree"></div>
           </div>
         </div>
       </div>
@@ -108,6 +114,18 @@
           <button class="analytics-close-btn" id="analytics-close-btn">&times;</button>
         </div>
         <div class="analytics-modal-body" id="analytics-modal-body"></div>
+      </div>
+    </div>
+
+    <!-- Balance Dashboard Modal (cross-game analytics) -->
+    <div id="balance-modal" class="modal-overlay balance-overlay hidden">
+      <div class="balance-modal-card">
+        <div class="balance-modal-header">
+          <h2>Balance Dashboard</h2>
+          <span class="balance-modal-sub">Cross-game analytics for balance tuning</span>
+          <button class="analytics-close-btn" id="balance-close-btn">&times;</button>
+        </div>
+        <div class="balance-modal-body" id="balance-modal-body"></div>
       </div>
     </div>
 

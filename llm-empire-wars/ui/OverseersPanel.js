@@ -5,6 +5,7 @@ import { MessagesFeed } from './MessagesFeed.js';
 import { EventLog } from './EventLog.js';
 import { TurnControls } from './TurnControls.js';
 import { AnalyticsPanel } from './AnalyticsPanel.js';
+import { TechTreePanel } from './TechTreePanel.js';
 
 export class OverseersPanel {
   constructor(callbacks) {
@@ -14,6 +15,7 @@ export class OverseersPanel {
     this.messagesFeed = new MessagesFeed(document.getElementById('messages-feed'));
     this.eventLog = new EventLog(document.getElementById('event-log'));
     this.analyticsPanel = new AnalyticsPanel(document.getElementById('analytics-modal'));
+    this.techTreePanel = new TechTreePanel(document.getElementById('tech-tree'));
     this.turnControls = new TurnControls(
       document.getElementById('turn-controls'),
       callbacks.onAdvance,
@@ -51,6 +53,8 @@ export class OverseersPanel {
         const action = btn.dataset.action;
         if (action === 'analytics') {
           this.analyticsPanel.open();
+        } else if (action === 'balance' && this._onOpenBalance) {
+          this._onOpenBalance();
         }
       });
     });
@@ -127,6 +131,10 @@ export class OverseersPanel {
     this.analyticsPanel.setTracker(tracker);
   }
 
+  onOpenBalance(callback) {
+    this._onOpenBalance = callback;
+  }
+
   updateState(gameState) {
     this.gameState = gameState;
     this.empireStats.update(gameState);
@@ -134,6 +142,7 @@ export class OverseersPanel {
     this.messagesFeed.update(gameState);
     this.eventLog.update(gameState);
     this.analyticsPanel.update(gameState);
+    this.techTreePanel.update(gameState);
     this.turnControls.updateState(gameState);
   }
 

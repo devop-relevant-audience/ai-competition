@@ -1,14 +1,31 @@
-import { getEmpireTerritories, getEmpireArmies } from './GameState.js';
+import { getEmpireTerritories, getEmpireArmies, getRelation } from './GameState.js';
 
 export class StatsTracker {
   constructor() {
     this.history = [];
     this.battleLog = {};
+    this._pendingActionCounts = {};
+  }
+
+  /**
+   * Call before resolveTurn to stash the action counts for this turn.
+   * GameEngine calls this with the raw pendingActions map.
+   */
+  stageActionCounts(pendingActions) {
+    this._pendingActionCounts = {};
+    for (const [empireId, actions] of Object.entries(pendingActions)) {
+      const counts = {};
+      for (const a of actions) {
+        counts[a.type] = (counts[a.type] || 0) + 1;
+      }
+      this._pendingActionCounts[empireId] = counts;
+    }
   }
 
   recordTurn(gameState, turnEvents = []) {
     const turn = gameState.meta.turn;
     const empireSnapshots = {};
+    const empireIds = Object.keys(gameState.empires);
 
     for (const empire of Object.values(gameState.empires)) {
       const territories = getEmpireTerritories(gameState, empire.id);
@@ -18,6 +35,23 @@ export class StatsTracker {
       const capitalIncome = territories.reduce((s, t) => s + (t.resources.capital || 0) + (t.buildings?.trade_office ? 2 : 0), 0);
       const industry = territories.reduce((s, t) => s + (t.resources.industry || 0) + (t.buildings?.factory ? 2 : 0), 0);
       const manpower = territories.reduce((s, t) => s + (t.resources.manpower || 0) + (t.buildings?.housing ? 2 : 0), 0);
+
+      const buildingCounts = {};
+      for (const t of territories) {
+        for (const [bKey, bVal] of Object.entries(t.buildings || {})) {
+          if (bVal) buildingCounts[bKey] = (buildingCounts[bKey] || 0) + 1;
+        }
+      }
+
+      let wars = 0, alliances = 0, trades = 0;
+      for (const otherId of empireIds) {
+        if (otherId === empire.id) continue;
+        const rel = getRelation(gameState, empire.id, otherId);
+        if (!rel) continue;
+        if (rel.status === 'war') wars++;
+        if (rel.status === 'alliance') alliances++;
+        if (rel.tradeValue > 0) trades++;
+      }
 
       empireSnapshots[empire.id] = {
         territories: territories.length,
@@ -29,6 +63,10 @@ export class StatsTracker {
         industry,
         manpower,
         isEliminated: empire.isEliminated,
+        actionCounts: this._pendingActionCounts[empire.id] || {},
+        buildings: buildingCounts,
+        diplomacy: { wars, alliances, trades },
+        resources: empire.resources ? { ...empire.resources } : {},
       };
     }
 
@@ -55,6 +93,7 @@ export class StatsTracker {
       }
     }
 
+    this._pendingActionCounts = {};
     this.history.push({ turn, empires: empireSnapshots });
   }
 

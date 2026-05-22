@@ -1,11 +1,13 @@
 import { ADJACENCY } from '../data/territories.js';
 
 import { BUILDING_DEFS } from '../data/territories.js';
+import { TECH_DEFS } from '../data/techs.js';
 
 const ACTION_SCHEMA = {
   move_army:         { required: ['army_id', 'to'] },
   recruit_units:     { required: ['territory_id', 'amount'] },
   build:             { required: ['territory_id', 'building'] },
+  research:          { required: ['tech_id'] },
   declare_war:       { required: ['target_empire_id'] },
   propose_peace:     { required: ['target_empire_id'] },
   propose_trade:     { required: ['target_empire_id'] },
@@ -128,6 +130,8 @@ export class ResponseParser {
         return this._coerceRecruit(action, empireId, gameState);
       case 'build':
         return this._coerceBuild(action, empireId, gameState);
+      case 'research':
+        return this._coerceResearch(action, empireId, gameState);
       case 'declare_war':
       case 'propose_peace':
       case 'propose_trade':
@@ -200,6 +204,26 @@ export class ResponseParser {
     if (!BUILDING_DEFS[building]) return null;
 
     return { ...action, territory_id: tid, building };
+  }
+
+  _coerceResearch(action, empireId, gameState) {
+    let techId = String(action.tech_id || '').toLowerCase().replace(/[\s-]+/g, '_');
+
+    if (!TECH_DEFS[techId]) {
+      for (const [id, def] of Object.entries(TECH_DEFS)) {
+        if (def.label.toLowerCase().replace(/[\s-]+/g, '_') === techId) { techId = id; break; }
+        if (id.includes(techId) || techId.includes(id)) { techId = id; break; }
+        if (def.label.toLowerCase().includes(techId.replace(/_/g, ' '))) { techId = id; break; }
+      }
+    }
+    if (!TECH_DEFS[techId]) return null;
+
+    let labTerritoryId = action.lab_territory_id;
+    if (labTerritoryId) {
+      labTerritoryId = this._resolveTerritoryId(labTerritoryId, gameState);
+    }
+
+    return { ...action, tech_id: techId, lab_territory_id: labTerritoryId || undefined };
   }
 
   _coerceEmpireTarget(action, empireId, gameState) {
@@ -342,6 +366,16 @@ export class ResponseParser {
     if (action.type === 'build') {
       if (!BUILDING_DEFS[action.building]) {
         return { valid: false, error: `build: building must be one of ${Object.keys(BUILDING_DEFS).join(', ')}` };
+      }
+    }
+
+    if (action.type === 'research') {
+      const tid = String(action.tech_id || '').toLowerCase().replace(/[\s-]+/g, '_');
+      const matched = TECH_DEFS[tid] || Object.entries(TECH_DEFS).find(([, d]) =>
+        d.label.toLowerCase().replace(/[\s-]+/g, '_') === tid
+      );
+      if (!matched && !TECH_DEFS[tid]) {
+        return { valid: false, error: `research: tech_id must be one of ${Object.keys(TECH_DEFS).join(', ')}` };
       }
     }
 

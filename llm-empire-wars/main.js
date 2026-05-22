@@ -8,6 +8,9 @@ import { DiplomacyEditor } from './ui/DiplomacyEditor.js';
 import { SaveManager } from './engine/SaveManager.js';
 import { StatsTracker } from './engine/StatsTracker.js';
 import { GameOverAnalytics } from './ui/AnalyticsPanel.js';
+import { GameReporter } from './engine/GameReporter.js';
+import { MetaStatsStore } from './engine/MetaStatsStore.js';
+import { BalanceDashboard } from './ui/BalanceDashboard.js';
 import { EMPIRE_DEFINITIONS } from './data/empires.js';
 import { MAP_PRESETS, DEFAULT_PRESET } from './data/regions.js';
 
@@ -19,6 +22,9 @@ class App {
     this.saveManager = new SaveManager();
     this.statsTracker = new StatsTracker();
     this.gameOverAnalytics = new GameOverAnalytics();
+    this.gameReporter = new GameReporter();
+    this.metaStore = new MetaStatsStore();
+    this.balanceDashboard = null;
     this.mapController = null;
     this.panel = null;
     this.diplomacyEditor = null;
@@ -80,6 +86,19 @@ class App {
 
     startBtn.addEventListener('click', () => this._startGame());
     continueBtn.addEventListener('click', () => this._continueGame());
+
+    const balanceBtn = document.getElementById('setup-balance-btn');
+    if (balanceBtn) {
+      balanceBtn.addEventListener('click', () => {
+        if (!this._setupBalanceDashboard) {
+          this._setupBalanceDashboard = new BalanceDashboard(
+            document.getElementById('balance-modal'),
+            this.metaStore,
+          );
+        }
+        this._setupBalanceDashboard.open();
+      });
+    }
   }
 
   _updateEmpirePreview() {
@@ -186,6 +205,12 @@ class App {
       this.panel.updateState(this.gameState);
     });
 
+    this.balanceDashboard = new BalanceDashboard(
+      document.getElementById('balance-modal'),
+      this.metaStore,
+    );
+    this.panel.onOpenBalance(() => this.balanceDashboard.open());
+
     this.panel.setStatsTracker(this.statsTracker);
     this.mapController.updateState(this.gameState);
     this.panel.updateState(this.gameState);
@@ -248,6 +273,7 @@ class App {
       this.panel.setPhase('resolution');
       this.gameState.meta.phase = 'resolution';
 
+      this.statsTracker.stageActionCounts(this.gameState.pendingActions || {});
       const { newState, events, movements } = this.engine.resolveTurn(this.gameState);
 
       for (const ev of events) {
@@ -301,9 +327,21 @@ class App {
     }
   }
 
+  async _saveGameReport(winResult) {
+    try {
+      const report = this.gameReporter.generate(this.gameState, this.statsTracker, winResult);
+      await this.metaStore.saveReport(report);
+      console.log(`[Analytics] Game report saved: ${report.gameId} (${report.turnCount} turns, winner: ${report.winner?.empireName})`);
+    } catch (err) {
+      console.error('[Analytics] Failed to save game report:', err);
+    }
+  }
+
   _showGameOver(win) {
     clearTimeout(this.autoTimer);
     this.autoTimer = null;
+
+    this._saveGameReport(win);
 
     const overlay = document.getElementById('game-over-overlay');
     const content = document.getElementById('game-over-content');
