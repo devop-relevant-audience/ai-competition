@@ -1,4 +1,4 @@
-# LLM Empire Wars — Plan of Action
+# LLM Competition Bench — Plan of Action
 
 **Status:** Architecture & Design  
 **Target:** Browser-only, Europe map, 3 AI empires via OpenRouter (deepseek/deepseek-v4-pro)  

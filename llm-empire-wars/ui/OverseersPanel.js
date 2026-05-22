@@ -4,6 +4,7 @@ import { DiplomacyFeed } from './DiplomacyFeed.js';
 import { MessagesFeed } from './MessagesFeed.js';
 import { EventLog } from './EventLog.js';
 import { TurnControls } from './TurnControls.js';
+import { AnalyticsPanel } from './AnalyticsPanel.js';
 
 export class OverseersPanel {
   constructor(callbacks) {
@@ -12,6 +13,7 @@ export class OverseersPanel {
     this.diplomacyFeed = new DiplomacyFeed(document.getElementById('diplomacy-feed'));
     this.messagesFeed = new MessagesFeed(document.getElementById('messages-feed'));
     this.eventLog = new EventLog(document.getElementById('event-log'));
+    this.analyticsPanel = new AnalyticsPanel(document.getElementById('analytics-modal'));
     this.turnControls = new TurnControls(
       document.getElementById('turn-controls'),
       callbacks.onAdvance,
@@ -26,7 +28,8 @@ export class OverseersPanel {
   }
 
   _initTabs() {
-    const tabs = document.querySelectorAll('.panel-tab');
+    const tabs = document.querySelectorAll('.panel-tab:not(.panel-tab-action)');
+    const actionBtns = document.querySelectorAll('.panel-tab-action');
     const contents = document.querySelectorAll('.panel-tab-content');
 
     tabs.forEach(tab => {
@@ -34,11 +37,21 @@ export class OverseersPanel {
         const target = tab.dataset.tab;
 
         tabs.forEach(t => t.classList.remove('active'));
+        actionBtns.forEach(b => b.classList.remove('active'));
         contents.forEach(c => c.classList.remove('active'));
 
         tab.classList.add('active');
         const content = document.querySelector(`[data-tab-content="${target}"]`);
         if (content) content.classList.add('active');
+      });
+    });
+
+    actionBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.action;
+        if (action === 'analytics') {
+          this.analyticsPanel.open();
+        }
       });
     });
   }
@@ -110,12 +123,17 @@ export class OverseersPanel {
     });
   }
 
+  setStatsTracker(tracker) {
+    this.analyticsPanel.setTracker(tracker);
+  }
+
   updateState(gameState) {
     this.gameState = gameState;
     this.empireStats.update(gameState);
     this.diplomacyFeed.update(gameState);
     this.messagesFeed.update(gameState);
     this.eventLog.update(gameState);
+    this.analyticsPanel.update(gameState);
     this.turnControls.updateState(gameState);
   }
 

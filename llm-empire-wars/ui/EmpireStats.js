@@ -1,4 +1,4 @@
-import { getEmpireTerritories, getEmpireArmies, getRelation } from '../engine/GameState.js';
+import { getEmpireTerritories, getEmpireArmies, getTotalTerritories, getRelation } from '../engine/GameState.js';
 
 export class EmpireStats {
   constructor(container) {
@@ -7,55 +7,57 @@ export class EmpireStats {
 
   update(gameState) {
     const empires = Object.values(gameState.empires);
+    const totalTerr = getTotalTerritories(gameState);
+
     const stats = empires.map(e => {
       const territories = getEmpireTerritories(gameState, e.id);
       const armies = getEmpireArmies(gameState, e.id);
       const totalUnits = armies.reduce((s, a) => s + a.size, 0);
-      const totalManpower = territories.reduce((s, t) => s + t.resources.manpower + (t.buildings?.housing ? 2 : 0), 0);
-      return { empire: e, territoryCount: territories.length, totalUnits, armyCount: armies.length, totalManpower };
-    }).sort((a, b) => b.territoryCount - a.territoryCount);
+      const goldIncome = territories.reduce((s, t) => s + (t.resources.gold || 0), 0);
+      const terrPct = totalTerr > 0 ? (territories.length / totalTerr) * 100 : 0;
+      return { empire: e, terrCount: territories.length, terrPct, totalUnits, goldIncome };
+    }).sort((a, b) => b.terrCount - a.terrCount);
 
-    this.container.innerHTML = stats.map((s, i) => {
+    this.container.innerHTML = stats.map((s, rank) => {
       const e = s.empire;
-      const leading = i === 0 && !e.isEliminated ? 'leading' : '';
-      const eliminated = e.isEliminated ? 'eliminated' : '';
+      const isLeader = rank === 0 && !e.isEliminated;
+      const elim = e.isEliminated;
 
-      const others = empires.filter(o => o.id !== e.id && !o.isEliminated);
-      const relBadges = others.map(o => {
-        const rel = getRelation(gameState, e.id, o.id);
-        const status = rel ? rel.status : 'neutral';
-        return `<span class="relation-badge ${status}"><span style="color:${o.color}">●</span> ${status}</span>`;
-      }).join('');
+      const rels = empires
+        .filter(o => o.id !== e.id && !o.isEliminated)
+        .map(o => {
+          const rel = getRelation(gameState, e.id, o.id);
+          const st = rel ? rel.status : 'neutral';
+          if (st === 'neutral') return '';
+          return `<span class="es-rel es-rel-${st}" title="${this._esc(o.name)}: ${st}"><span class="es-rel-dot" style="color:${o.color}">&#9679;</span>${st}</span>`;
+        })
+        .filter(Boolean)
+        .join('');
 
       return `
-        <div class="empire-stat-row ${leading} ${eliminated}">
-          <div class="empire-stat-color" style="background:${e.color}"></div>
-          <div class="empire-stat-name" style="color:${e.color}">
-            ${this._escapeHtml(e.name)}
-            ${e.isEliminated ? '<span style="color:var(--danger);font-size:10px;font-weight:500;margin-left:6px">ELIMINATED</span>' : ''}
-            <div class="relations-row">${relBadges}</div>
-          </div>
-          <div class="empire-stat-metrics">
-            <span class="metric" title="Territories"><span class="metric-value">${s.territoryCount}</span> terr</span>
-            <span class="metric" title="Divisions"><span class="metric-value">${s.totalUnits}</span> units</span>
-            <span class="metric" title="Manpower"><span class="metric-value">${s.totalManpower}</span> mpower</span>
-            <span class="metric" title="Capital"><span class="metric-value">${e.treasury}</span> cap</span>
-            <span class="metric" title="Reputation"><span class="metric-value">${e.reputation}</span> rep</span>
-            <span class="metric" title="Confidence">${this._confidenceBar(e.confidence)}</span>
-          </div>
-        </div>`;
+      <div class="es-card${isLeader ? ' es-leader' : ''}${elim ? ' es-elim' : ''}">
+        <div class="es-top">
+          <span class="es-rank">#${rank + 1}</span>
+          <span class="es-dot" style="background:${e.color}"></span>
+          <span class="es-name" style="color:${e.color}">${this._esc(e.name)}</span>
+          ${elim ? '<span class="es-elim-tag">ELIM</span>' : ''}
+        </div>
+        <div class="es-bar-row">
+          <div class="es-bar"><div class="es-bar-fill" style="width:${s.terrPct}%;background:${e.color}"></div></div>
+          <span class="es-bar-num">${s.terrCount}<span class="es-bar-sep">/</span>${totalTerr}</span>
+        </div>
+        <div class="es-nums">
+          <span class="es-n" title="Army units">${s.totalUnits} <i>units</i></span>
+          <span class="es-n" title="Treasury">${e.treasury} <i>cap</i></span>
+          <span class="es-n" title="Gold income">${s.goldIncome} <i>inc</i></span>
+          <span class="es-n" title="Reputation">${e.reputation} <i>rep</i></span>
+        </div>
+        ${rels ? `<div class="es-rels">${rels}</div>` : ''}
+      </div>`;
     }).join('');
   }
 
-  _confidenceBar(confidence) {
-    const pct = Math.max(0, Math.min(100, confidence));
-    let color = 'var(--danger)';
-    if (pct > 30) color = 'var(--warning)';
-    if (pct > 60) color = 'var(--success)';
-    return `<span class="metric-value">${pct}</span> conf`;
-  }
-
-  _escapeHtml(text) {
+  _esc(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;

@@ -1,114 +1,122 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LLM Empire Wars</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <!-- Setup Screen -->
-  <div id="setup-screen" class="setup-screen">
-    <div class="setup-card">
-      <h1 class="setup-title">LLM Empire <span class="accent">Wars</span></h1>
-      <p class="setup-subtitle">Watch AI-driven states compete for Cold War-era dominance</p>
-      <div class="setup-field">
-        <label for="api-key-input">DeepSeek API Key</label>
-        <input type="password" id="api-key-input" placeholder="sk-..." autocomplete="off" />
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LLM Competition Bench</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Setup Screen -->
+    <div id="setup-screen" class="setup-screen">
+      <div class="setup-card">
+        <h1 class="setup-title">LLM Empire <span class="accent">Wars</span></h1>
+        <p class="setup-subtitle">Watch AI-driven states compete for Cold War-era dominance</p>
+        <div class="setup-field">
+          <label for="api-key-input">DeepSeek API Key</label>
+          <input type="password" id="api-key-input" placeholder="sk-..." autocomplete="off" />
+        </div>
+        <div class="setup-field">
+          <label>Map</label>
+          <div class="map-preset-selector" id="map-preset-selector"></div>
+        </div>
+        <div class="setup-field">
+          <label for="turn-limit-input">Turn Limit</label>
+          <input type="number" id="turn-limit-input" value="50" min="10" max="200" />
+        </div>
+        <div class="setup-empires" id="setup-empires"></div>
+        <button id="start-game-btn" class="btn-primary" disabled>Start Simulation</button>
+        <button id="continue-game-btn" class="btn-primary btn-continue hidden">Continue Saved Game</button>
+        <span id="continue-save-info" class="continue-save-info hidden"></span>
+        <p class="setup-error" id="setup-error"></p>
       </div>
-      <div class="setup-field">
-        <label>Map</label>
-        <div class="map-preset-selector" id="map-preset-selector"></div>
-      </div>
-      <div class="setup-field">
-        <label for="turn-limit-input">Turn Limit</label>
-        <input type="number" id="turn-limit-input" value="50" min="10" max="200" />
-      </div>
-      <div class="setup-empires" id="setup-empires"></div>
-      <button id="start-game-btn" class="btn-primary" disabled>Start Simulation</button>
-      <button id="continue-game-btn" class="btn-primary btn-continue hidden">Continue Saved Game</button>
-      <span id="continue-save-info" class="continue-save-info hidden"></span>
-      <p class="setup-error" id="setup-error"></p>
     </div>
-  </div>
 
-  <!-- Game Screen -->
-  <div id="game-screen" class="game-screen hidden">
-    <div class="game-layout">
-      <!-- Map Area -->
-      <div class="map-area">
-        <div id="map"></div>
-        <div id="territory-tooltip" class="territory-tooltip hidden"></div>
-      </div>
-
-      <!-- Resize Handle (panel width) -->
-      <div class="resize-handle-v" id="resize-panel"></div>
-
-      <!-- Right Panel -->
-      <div class="right-panel" id="right-panel">
-        <!-- Tabs -->
-        <div class="panel-tabs" id="panel-tabs">
-          <button class="panel-tab active" data-tab="empires">Empires</button>
-          <button class="panel-tab" data-tab="events">Events</button>
-          <button class="panel-tab" data-tab="reasoning">Reasoning</button>
-          <button class="panel-tab" data-tab="diplomacy">Diplomacy</button>
-          <button class="panel-tab" data-tab="messages">Messages</button>
+    <!-- Game Screen -->
+    <div id="game-screen" class="game-screen hidden">
+      <div class="game-layout">
+        <!-- Map Area -->
+        <div class="map-area">
+          <div id="map"></div>
+          <div id="territory-tooltip" class="territory-tooltip hidden"></div>
         </div>
 
-        <!-- Tab Content -->
-        <div class="panel-section panel-tab-content active" id="tab-empires" data-tab-content="empires">
-          <div id="empire-stats"></div>
-        </div>
-        <div class="panel-section panel-tab-content" id="tab-events" data-tab-content="events">
-          <div class="event-log-area" id="event-log-area">
-            <h3 class="event-log-title">Event Log</h3>
-            <div id="event-log"></div>
+        <!-- Resize Handle (panel width) -->
+        <div class="resize-handle-v" id="resize-panel"></div>
+
+        <!-- Right Panel -->
+        <div class="right-panel" id="right-panel">
+          <!-- Tabs -->
+          <div class="panel-tabs" id="panel-tabs">
+            <button class="panel-tab active" data-tab="empires">Empires</button>
+            <button class="panel-tab" data-tab="events">Events</button>
+            <button class="panel-tab" data-tab="reasoning">Reasoning</button>
+            <button class="panel-tab" data-tab="diplomacy">Diplomacy</button>
+            <button class="panel-tab" data-tab="messages">Messages</button>
+            <button class="panel-tab panel-tab-action" data-action="analytics">Analytics</button>
+          </div>
+
+          <!-- Tab Content -->
+          <div class="panel-section panel-tab-content active" id="tab-empires" data-tab-content="empires">
+            <div id="empire-stats"></div>
+          </div>
+          <div class="panel-section panel-tab-content" id="tab-events" data-tab-content="events">
+            <div class="event-log-area" id="event-log-area">
+              <h3 class="event-log-title">Event Log</h3>
+              <div id="event-log"></div>
+            </div>
+          </div>
+          <div class="panel-section panel-tab-content" id="tab-reasoning" data-tab-content="reasoning">
+            <div id="reasoning-log"></div>
+          </div>
+          <div class="panel-section panel-tab-content" id="tab-diplomacy" data-tab-content="diplomacy">
+            <div id="diplomacy-feed"></div>
+          </div>
+          <div class="panel-section panel-tab-content" id="tab-messages" data-tab-content="messages">
+            <div id="messages-feed"></div>
           </div>
         </div>
-        <div class="panel-section panel-tab-content" id="tab-reasoning" data-tab-content="reasoning">
-          <div id="reasoning-log"></div>
-        </div>
-        <div class="panel-section panel-tab-content" id="tab-diplomacy" data-tab-content="diplomacy">
-          <div id="diplomacy-feed"></div>
-        </div>
-        <div class="panel-section panel-tab-content" id="tab-messages" data-tab-content="messages">
-          <div id="messages-feed"></div>
+      </div>
+
+      <!-- Bottom Bar -->
+      <div class="bottom-bar" id="bottom-bar">
+        <div class="turn-controls" id="turn-controls"></div>
+      </div>
+    </div>
+
+    <!-- Save/Load Modal -->
+    <div id="save-load-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <h2 id="modal-title">Save Game</h2>
+        <div id="modal-slots"></div>
+        <div class="modal-actions">
+          <button id="modal-close-btn" class="btn-secondary">Close</button>
         </div>
       </div>
     </div>
 
-    <!-- Bottom Bar -->
-    <div class="bottom-bar" id="bottom-bar">
-      <div class="turn-controls" id="turn-controls"></div>
-    </div>
-  </div>
-
-  <!-- Save/Load Modal -->
-  <div id="save-load-modal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <h2 id="modal-title">Save Game</h2>
-      <div id="modal-slots"></div>
-      <div class="modal-actions">
-        <button id="modal-close-btn" class="btn-secondary">Close</button>
+    <!-- Analytics Modal -->
+    <div id="analytics-modal" class="modal-overlay analytics-overlay hidden">
+      <div class="analytics-modal-card">
+        <div class="analytics-modal-header">
+          <h2>Empire Analytics</h2>
+          <button class="analytics-close-btn" id="analytics-close-btn">&times;</button>
+        </div>
+        <div class="analytics-modal-body" id="analytics-modal-body"></div>
       </div>
     </div>
-  </div>
 
-  <!-- Game Over Overlay -->
-  <div id="game-over-overlay" class="game-over-overlay hidden">
-    <div class="game-over-card">
-      <h1 id="game-over-title"></h1>
-      <p id="game-over-subtitle"></p>
-      <div id="game-over-stats"></div>
-      <button id="restart-btn" class="btn-primary">New Game</button>
+    <!-- Game Over Overlay (full-screen analytics) -->
+    <div id="game-over-overlay" class="game-over-overlay hidden">
+      <div class="game-over-full" id="game-over-content"></div>
     </div>
-  </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="main.js"></script>
-</body>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module" src="main.js"></script>
+  </body>
 </html>

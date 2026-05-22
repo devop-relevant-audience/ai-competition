@@ -6,6 +6,8 @@ import { MapController } from './map/MapController.js';
 import { OverseersPanel } from './ui/OverseersPanel.js';
 import { DiplomacyEditor } from './ui/DiplomacyEditor.js';
 import { SaveManager } from './engine/SaveManager.js';
+import { StatsTracker } from './engine/StatsTracker.js';
+import { GameOverAnalytics } from './ui/AnalyticsPanel.js';
 import { EMPIRE_DEFINITIONS } from './data/empires.js';
 import { MAP_PRESETS, DEFAULT_PRESET } from './data/regions.js';
 
@@ -15,6 +17,8 @@ class App {
     this.engine = new GameEngine();
     this.aiController = new AIController();
     this.saveManager = new SaveManager();
+    this.statsTracker = new StatsTracker();
+    this.gameOverAnalytics = new GameOverAnalytics();
     this.mapController = null;
     this.panel = null;
     this.diplomacyEditor = null;
@@ -111,6 +115,9 @@ class App {
     const preset = MAP_PRESETS[this.selectedPreset];
     this.gameState = createInitialState({ turnLimit, regions: preset.regions, presetKey: this.selectedPreset });
 
+    this.statsTracker = new StatsTracker();
+    this.statsTracker.recordTurn(this.gameState, []);
+
     await this._initGameUI(preset);
   }
 
@@ -139,11 +146,15 @@ class App {
     const presetKey = record.gameState.meta.presetKey || 'europe';
     const preset = MAP_PRESETS[presetKey] || MAP_PRESETS.europe;
 
+    this.statsTracker = new StatsTracker();
+    this.statsTracker.rebuildFromState(this.gameState);
+
     await this._initGameUI(preset);
   }
 
   async _resumeFromRecord(record) {
     this.gameState = record.gameState;
+    this.statsTracker.rebuildFromState(this.gameState);
     this.mapController.updateState(this.gameState);
     this.panel.updateState(this.gameState);
     this.panel.setPhase('awaiting_advance');
@@ -175,6 +186,7 @@ class App {
       this.panel.updateState(this.gameState);
     });
 
+    this.panel.setStatsTracker(this.statsTracker);
     this.mapController.updateState(this.gameState);
     this.panel.updateState(this.gameState);
     this.panel.setPhase('awaiting_advance');
@@ -243,6 +255,7 @@ class App {
       }
 
       this.gameState = newState;
+      this.statsTracker.recordTurn(this.gameState, events);
       this.mapController.updateState(this.gameState);
       this.panel.updateState(this.gameState);
       this.panel.setPhase('awaiting_advance');
@@ -279,42 +292,22 @@ class App {
     this.autoTimer = null;
 
     const overlay = document.getElementById('game-over-overlay');
-    const title = document.getElementById('game-over-title');
-    const subtitle = document.getElementById('game-over-subtitle');
-    const stats = document.getElementById('game-over-stats');
+    const content = document.getElementById('game-over-content');
 
-    const reasons = {
-      domination: 'achieved total domination!',
-      turn_limit: 'controls the most territory as time runs out!',
-      last_standing: 'is the last empire standing!',
-    };
-
-    title.innerHTML = `<span style="color:${win.winner.color}">${win.winner.name}</span> Wins!`;
-    subtitle.textContent = `${win.winner.name} ${reasons[win.reason] || 'wins!'}`;
-
-    const empires = Object.values(this.gameState.empires).sort((a, b) => {
-      const aT = Object.values(this.gameState.territories).filter(t => t.ownerId === a.id).length;
-      const bT = Object.values(this.gameState.territories).filter(t => t.ownerId === b.id).length;
-      return bT - aT;
-    });
-
-    stats.innerHTML = empires.map(e => {
-      const territories = Object.values(this.gameState.territories).filter(t => t.ownerId === e.id).length;
-      return `
-        <div class="game-over-stat">
-          <div class="empire-stat-color" style="background:${e.color}"></div>
-          <span style="color:${e.color};font-weight:600;flex:1">${e.name}</span>
-          <span class="stat-label">${territories} terr</span>
-          <span class="stat-label">${e.treasury}g</span>
-          ${e.isEliminated ? '<span style="color:var(--danger);font-size:11px;font-weight:500">ELIMINATED</span>' : ''}
-        </div>`;
-    }).join('');
+    this.gameOverAnalytics.destroy();
+    this.gameOverAnalytics.render(content, this.statsTracker, this.gameState);
 
     overlay.classList.remove('hidden');
 
-    document.getElementById('restart-btn').addEventListener('click', () => {
-      window.location.reload();
-    });
+    const restartBtn = content.querySelector('#go-restart-btn');
+    const reviewBtn = content.querySelector('#go-review-btn');
+
+    if (restartBtn) {
+      restartBtn.addEventListener('click', () => window.location.reload());
+    }
+    if (reviewBtn) {
+      reviewBtn.addEventListener('click', () => overlay.classList.add('hidden'));
+    }
   }
 
   _initModalClose() {
