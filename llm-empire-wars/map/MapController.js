@@ -1,6 +1,7 @@
 import { MAP_CONFIG } from './MapTheme.js';
 import { TerritoryLayer } from './TerritoryLayer.js';
 import { ArmyLayer } from './ArmyLayer.js';
+import { OverlayLayer } from './OverlayLayer.js';
 import { TERRITORY_DATA, RUSSIA_SEGMENTS } from '../data/territories.js';
 
 export class MapController {
@@ -33,6 +34,7 @@ export class MapController {
 
     this.territoryLayer = new TerritoryLayer(this.map);
     this.armyLayer = new ArmyLayer(this.map);
+    this.overlayLayer = new OverlayLayer(this.map);
   }
 
   async loadGeoJSON(url, regions) {
@@ -51,12 +53,18 @@ export class MapController {
     }
 
     this.territoryLayer.setData(geojson);
+    this.overlayLayer.setGeoJSON(geojson);
     return geojson;
   }
 
   updateState(gameState) {
     this.territoryLayer.updateOwnership(gameState);
     this.armyLayer.updateArmies(gameState);
+    this.overlayLayer.update(gameState);
+  }
+
+  showCombatText(territoryId, losses, state) {
+    this.overlayLayer.showCombatText(territoryId, losses, state);
   }
 
   animateMovements(movements, gameState) {

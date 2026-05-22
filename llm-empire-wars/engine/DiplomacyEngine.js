@@ -26,6 +26,12 @@ export class DiplomacyEngine {
           case 'send_message':
             events.push(...this._sendMessage(state, empireId, action));
             break;
+          case 'impose_embargo':
+            events.push(...this._imposeEmbargo(state, empireId, action));
+            break;
+          case 'lift_embargo':
+            events.push(...this._liftEmbargo(state, empireId, action));
+            break;
         }
       }
     }
@@ -69,6 +75,7 @@ export class DiplomacyEngine {
       if (proposalKind === 'trade' && rel.status === 'neutral') {
         rel.status = 'trade';
         rel.tradeValue = 2;
+        rel.embargo = null;
         adjustConfidence(fromEmpire, 2);
         adjustConfidence(toEmpire, 2);
         events.push(this._makeEvent(state, 'trade_established',
@@ -76,6 +83,7 @@ export class DiplomacyEngine {
           [empireId, targetId]));
       } else if (proposalKind === 'alliance' && (rel.status === 'trade' || rel.status === 'neutral')) {
         rel.status = 'alliance';
+        rel.embargo = null;
         adjustConfidence(fromEmpire, 4);
         adjustConfidence(toEmpire, 4);
         events.push(this._makeEvent(state, 'alliance_formed',
@@ -84,6 +92,7 @@ export class DiplomacyEngine {
         events.push(...this._inheritWars(state, empireId, targetId));
       } else if (proposalKind === 'peace' && rel.status === 'war') {
         rel.status = 'neutral';
+        rel.embargo = null;
         rel.peaceCooldownUntil = state.meta.turn + 3;
         adjustConfidence(fromEmpire, 2);
         adjustConfidence(toEmpire, 2);
@@ -122,6 +131,7 @@ export class DiplomacyEngine {
     rel.status = 'war';
     rel.tradeValue = 0;
     rel.pactExpiry = null;
+    rel.embargo = null;
 
     if (wasAllied) {
       state.empires[empireId].reputation = Math.max(0, state.empires[empireId].reputation - 30);
@@ -230,6 +240,74 @@ export class DiplomacyEngine {
         `${state.empires[allyId].name} joined the war against ${state.empires[targetId].name} in support of their ally ${state.empires[aggressorId].name}!`,
         [allyId, targetId, aggressorId]));
     }
+
+    return events;
+  }
+
+  _imposeEmbargo(state, empireId, action) {
+    const events = [];
+    const targetId = action.target_empire_id;
+    const fromEmpire = state.empires[empireId];
+    const toEmpire = state.empires[targetId];
+    if (!fromEmpire || !toEmpire) return events;
+
+    const key = getRelationKey(empireId, targetId);
+    const rel = state.relations[key];
+    if (!rel) return events;
+
+    if (rel.status === 'alliance') return events;
+    if (rel.embargo === empireId || rel.embargo === 'mutual') return events;
+
+    if (rel.status === 'trade') {
+      rel.status = 'neutral';
+      rel.tradeValue = 0;
+      events.push(this._makeEvent(state, 'trade_cancelled',
+        `${fromEmpire.name} cancelled their trade agreement with ${toEmpire.name} as part of the embargo!`,
+        [empireId, targetId]));
+    }
+
+    if (rel.embargo && rel.embargo !== empireId) {
+      rel.embargo = 'mutual';
+    } else {
+      rel.embargo = empireId;
+    }
+
+    fromEmpire.reputation = Math.max(0, fromEmpire.reputation - 5);
+    adjustConfidence(toEmpire, -2);
+
+    events.push(this._makeEvent(state, 'embargo_imposed',
+      `${fromEmpire.name} imposed an EMBARGO on ${toEmpire.name}! Their territories now block ${toEmpire.name}'s trade routes.`,
+      [empireId, targetId]));
+
+    return events;
+  }
+
+  _liftEmbargo(state, empireId, action) {
+    const events = [];
+    const targetId = action.target_empire_id;
+    const fromEmpire = state.empires[empireId];
+    const toEmpire = state.empires[targetId];
+    if (!fromEmpire || !toEmpire) return events;
+
+    const key = getRelationKey(empireId, targetId);
+    const rel = state.relations[key];
+    if (!rel) return events;
+
+    if (!rel.embargo) return events;
+
+    if (rel.embargo === 'mutual') {
+      rel.embargo = targetId;
+    } else if (rel.embargo === empireId) {
+      rel.embargo = null;
+    } else {
+      return events;
+    }
+
+    adjustConfidence(toEmpire, 1);
+
+    events.push(this._makeEvent(state, 'embargo_lifted',
+      `${fromEmpire.name} lifted their embargo on ${toEmpire.name}.`,
+      [empireId, targetId]));
 
     return events;
   }

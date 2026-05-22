@@ -15,9 +15,8 @@ export class StatsTracker {
       const armies = getEmpireArmies(gameState, empire.id);
       const totalUnits = armies.reduce((s, a) => s + a.size, 0);
 
-      const goldIncome = territories.reduce((s, t) => s + (t.resources.gold || 0), 0);
-      const foodIncome = territories.reduce((s, t) => s + (t.resources.food || 0), 0);
-      const prodIncome = territories.reduce((s, t) => s + (t.resources.production || 0), 0);
+      const capitalIncome = territories.reduce((s, t) => s + (t.resources.capital || 0) + (t.buildings?.trade_office ? 2 : 0), 0);
+      const industry = territories.reduce((s, t) => s + (t.resources.industry || 0) + (t.buildings?.factory ? 2 : 0), 0);
       const manpower = territories.reduce((s, t) => s + (t.resources.manpower || 0) + (t.buildings?.housing ? 2 : 0), 0);
 
       empireSnapshots[empire.id] = {
@@ -27,9 +26,8 @@ export class StatsTracker {
         treasury: empire.treasury,
         reputation: empire.reputation,
         confidence: empire.confidence,
-        goldIncome,
-        foodIncome,
-        prodIncome,
+        capitalIncome,
+        industry,
         manpower,
         isEliminated: empire.isEliminated,
       };
@@ -41,13 +39,19 @@ export class StatsTracker {
           if (!this.battleLog[eid]) this.battleLog[eid] = { fought: 0, won: 0, lost: 0 };
           this.battleLog[eid].fought++;
         }
-        if (evt.winner) {
-          if (!this.battleLog[evt.winner]) this.battleLog[evt.winner] = { fought: 0, won: 0, lost: 0 };
-          this.battleLog[evt.winner].won++;
+        if (evt.winnerEmpireIds) {
+          for (const eid of evt.winnerEmpireIds) {
+            if (eid === 'neutral') continue;
+            if (!this.battleLog[eid]) this.battleLog[eid] = { fought: 0, won: 0, lost: 0 };
+            this.battleLog[eid].won++;
+          }
         }
-        if (evt.loser) {
-          if (!this.battleLog[evt.loser]) this.battleLog[evt.loser] = { fought: 0, won: 0, lost: 0 };
-          this.battleLog[evt.loser].lost++;
+        if (evt.loserEmpireIds) {
+          for (const eid of evt.loserEmpireIds) {
+            if (eid === 'neutral') continue;
+            if (!this.battleLog[eid]) this.battleLog[eid] = { fought: 0, won: 0, lost: 0 };
+            this.battleLog[eid].lost++;
+          }
         }
       }
     }

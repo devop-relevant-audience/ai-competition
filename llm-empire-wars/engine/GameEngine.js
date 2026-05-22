@@ -28,9 +28,12 @@ export class GameEngine {
     const moveActions = {};
     const otherActions = {};
 
+    const embargoActions = {};
+
     for (const [empireId, actions] of Object.entries(allActions)) {
       breakActions[empireId] = actions.filter(a => a.type === 'break_alliance');
       warActions[empireId] = actions.filter(a => a.type === 'declare_war');
+      embargoActions[empireId] = actions.filter(a => a.type === 'impose_embargo' || a.type === 'lift_embargo');
       buildActions[empireId] = actions.filter(a => a.type === 'build');
       buyManpowerActions[empireId] = actions.filter(a => a.type === 'buy_manpower');
       recruitActions[empireId] = actions.filter(a => a.type === 'recruit_units');
@@ -43,6 +46,7 @@ export class GameEngine {
 
     allEvents.push(...this.diplomacy.processDiplomaticActions(state, breakActions));
     allEvents.push(...this.diplomacy.processDiplomaticActions(state, warActions));
+    allEvents.push(...this.diplomacy.processDiplomaticActions(state, embargoActions));
 
     allEvents.push(...this.economy.processBuilding(state, buildActions));
     const manpowerBonusMap = this.economy.processBuyManpower(state, buyManpowerActions);

@@ -1,4 +1,4 @@
-import { TERRITORY_DATA } from '../data/territories.js';
+import { TERRITORY_DATA, ADJACENCY } from '../data/territories.js';
 import { EMPIRE_DEFINITIONS } from '../data/empires.js';
 
 export function deepClone(obj) {
@@ -166,4 +166,88 @@ export function getTotalTerritories(state) {
 
 export function adjustConfidence(empire, delta) {
   empire.confidence = Math.min(100, Math.max(0, empire.confidence + delta));
+}
+
+/**
+ * BFS from empireA's capital to empireB's capital through territories
+ * that are not owned by an empire at war with either partner,
+ * and not owned by an empire that has embargoed either partner.
+ * Returns array of territory IDs forming the path, or null if blocked.
+ */
+export function findTradeRoute(state, empireA, empireB) {
+  let startTid = null;
+  let endTid = null;
+  for (const [tid, terr] of Object.entries(state.territories)) {
+    if (terr.capital && terr.ownerId === empireA) startTid = tid;
+    if (terr.capital && terr.ownerId === empireB) endTid = tid;
+  }
+  if (!startTid || !endTid) return null;
+
+  const isBlocked = (tid) => {
+    const owner = state.territories[tid]?.ownerId;
+    if (!owner) return false;
+    if (owner === empireA || owner === empireB) return false;
+    const relA = getRelation(state, empireA, owner);
+    const relB = getRelation(state, empireB, owner);
+    if (relA && relA.status === 'war') return true;
+    if (relB && relB.status === 'war') return true;
+    if (relA && isEmbargoedBy(relA, owner, empireA)) return true;
+    if (relB && isEmbargoedBy(relB, owner, empireB)) return true;
+    return false;
+  };
+
+  const queue = [startTid];
+  const prev = { [startTid]: null };
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (current === endTid) {
+      const path = [];
+      let node = endTid;
+      while (node !== null) {
+        path.unshift(node);
+        node = prev[node];
+      }
+      return path;
+    }
+    for (const neighbor of (ADJACENCY[current] || [])) {
+      if (neighbor in prev) continue;
+      if (!state.territories[neighbor]) continue;
+      if (isBlocked(neighbor)) continue;
+      prev[neighbor] = current;
+      queue.push(neighbor);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Returns true if `embargoer` has an active embargo against `target`
+ * based on the relation's embargo field.
+ */
+export function isEmbargoedBy(relation, embargoer, target) {
+  if (!relation || !relation.embargo) return false;
+  if (relation.embargo === 'mutual') return true;
+  return relation.embargo === embargoer;
+}
+
+/**
+ * Compute chokepoint tolls for a trade route path.
+ * Returns { toll: number, tolledBy: [{empireId, territoryId, chokepoint}] }
+ */
+export function computeChokepointTolls(state, path, empireA, empireB) {
+  const tolledBy = [];
+  for (const tid of path) {
+    const terr = state.territories[tid];
+    if (!terr) continue;
+    const data = TERRITORY_DATA[tid];
+    if (!data || !data.chokepoint) continue;
+    const owner = terr.ownerId;
+    if (!owner || owner === empireA || owner === empireB) continue;
+    const relOwner = getRelation(state, empireA, owner);
+    if (relOwner && relOwner.status === 'alliance') continue;
+    tolledBy.push({ empireId: owner, territoryId: tid, chokepoint: data.chokepoint });
+  }
+  return { toll: tolledBy.length, tolledBy };
 }

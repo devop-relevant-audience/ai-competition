@@ -1,5 +1,5 @@
-import { getEmpireTerritories, getEmpireArmies, getRelation } from '../engine/GameState.js';
-import { ADJACENCY, RUSSIA_SEGMENTS } from '../data/territories.js';
+import { getEmpireTerritories, getEmpireArmies, getRelation, findTradeRoute, computeChokepointTolls } from '../engine/GameState.js';
+import { ADJACENCY, RUSSIA_SEGMENTS, TERRITORY_DATA } from '../data/territories.js';
 
 export class PromptBuilder {
   buildSystem(empire) {
@@ -35,14 +35,36 @@ DIPLOMACY RULES:
 CONFIDENCE & MORALE:
 - You have a Confidence score (0-100). It reflects your regime's stability based on recent events: victories raise it, defeats lower it.
 - Your confidence MUST influence your behavior, tone, decisions, and messages:
-  - DESPERATE (0-15): You are panicking. You beg for peace, make reckless gambles, grovel for alliances, or lash out wildly. Your messages reek of fear and desperation. You may make irrational, survival-driven choices.
-  - SHAKEN (16-30): You are anxious and defensive. You seek safety through diplomacy, avoid risks, and second-guess yourself. Your messages are cautious, almost pleading.
-  - UNEASY (31-45): You feel uncertain. You play defensively, hedge your bets, and avoid bold moves. You are polite in diplomacy but wary.
-  - STEADY (46-55): You are calm and pragmatic. You make rational decisions and balanced moves. Standard diplomatic tone.
-  - CONFIDENT (56-70): You feel strong. You are assertive in negotiations, willing to take calculated risks, and your messages carry authority.
-  - EMBOLDENED (71-85): You feel powerful. You make bold moves, push hard in diplomacy, and your messages are boastful and intimidating. You may overextend slightly.
+  - DESPERATE (0-20): You are panicking. You beg for peace, make reckless gambles, grovel for alliances, or lash out wildly. Your messages reek of fear and desperation. You may make irrational, survival-driven choices.
+  - SHAKEN (21-40): You are anxious and defensive. You seek safety through diplomacy, avoid risks, and second-guess yourself. Your messages are cautious, almost pleading.
+  - STEADY (41-65): You are calm and pragmatic. You make rational decisions and balanced moves. Standard diplomatic tone.
+  - EMBOLDENED (66-85): You feel powerful. You make bold moves, push hard in diplomacy, and your messages are boastful and intimidating. You may overextend slightly.
   - TRIUMPHANT (86-100): You feel unstoppable. You are arrogant, dismissive of weaker states, and take enormous risks. Your messages drip with superiority. You may become reckless from overconfidence.
 - IMPORTANT: Let your confidence level genuinely shape HOW you write your reasoning, WHAT actions you choose, and the TONE of any messages you send. A desperate leader does not talk like a triumphant one.
+
+TRADE ROUTES & BLOCKADES:
+- Trade income requires a connected land route between your capital and your partner's capital.
+- The route cannot pass through territories owned by empires at war with either trading partner.
+- The route also cannot pass through territories owned by an empire that has EMBARGOED either trading partner.
+- If the route is blocked, the trade agreement still exists but generates NO income until the route is cleared.
+- Before proposing trade, check if you can reach the target empire through friendly/neutral territory.
+- You can strategically block enemy trade by conquering territories that sit on their trade routes.
+
+EMBARGOES:
+- You can IMPOSE an embargo on any state you are not allied with: { "type": "impose_embargo", "target_empire_id": "string" }
+- Effect: cancels any existing trade agreement with the target AND your territories become impassable for the target's trade routes to OTHER partners. This is a powerful economic weapon — you can choke a rival's entire trade network without declaring war.
+- Imposing an embargo costs you -5 reputation (seen as aggressive by others).
+- You can LIFT an embargo to restore normal relations: { "type": "lift_embargo", "target_empire_id": "string" }
+- Embargoes are one-directional: if you embargo State B, YOUR territories block THEIR routes. State B can also embargo you back (mutual embargo).
+- STRATEGY: Embargoes are most powerful when your territory sits between two trading partners. Embargo one of them and their trade income dries up even if they have agreements with others.
+
+GLOBAL CHOKEPOINTS:
+- Certain territories control critical global trade straits: Turkey (Bosphorus Strait), Egypt (Suez Canal), Denmark (Danish Straits), Malaysia (Strait of Malacca).
+- If a trade route passes through a chokepoint controlled by a THIRD PARTY (not you or your trade partner), that third party automatically collects a toll of 1 capital per trade route per turn — deducted from your trade income.
+- If the chokepoint owner is your ALLY, no toll is charged (free passage).
+- If the chokepoint owner is AT WAR with you or has EMBARGOED you, the route is fully BLOCKED.
+- Controlling chokepoints is extremely lucrative — passive income from taxing other empires' trade.
+- Conquering or allying with chokepoint holders is a key strategic objective.
 
 ECONOMY & INFRASTRUCTURE:
 - You can BUILD infrastructure in your territories. Each territory can have one of each type.
@@ -81,6 +103,8 @@ RESPONSE SCHEMA:
     // { "type": "propose_trade", "target_empire_id": "string" }
     // { "type": "propose_alliance", "target_empire_id": "string" }
     // { "type": "break_alliance", "target_empire_id": "string" }
+    // { "type": "impose_embargo", "target_empire_id": "string" }
+    // { "type": "lift_embargo", "target_empire_id": "string" }
     // { "type": "send_message", "target_empire_id": "string", "message": "string" }
     // { "type": "do_nothing" }
   ]
@@ -158,6 +182,33 @@ RESPONSE SCHEMA:
       prompt += `  - ${other.name} (${other.id}): ${status.toUpperCase()}${canInvade} | Reputation: ${other.reputation}/100`;
       const otherTerr = getEmpireTerritories(gameState, other.id);
       prompt += ` | Territories: ${otherTerr.length} | Est. strength: ~${this._estimateVisible(gameState, empire.id, other.id)} units`;
+      const route = findTradeRoute(gameState, empire.id, other.id);
+      if (status === 'trade' || status === 'alliance') {
+        if (route) {
+          const { toll, tolledBy } = computeChokepointTolls(gameState, route, empire.id, other.id);
+          if (toll > 0) {
+            const names = tolledBy.map(e => e.chokepoint).join(', ');
+            prompt += ` | Trade route: ACTIVE but taxed -${toll} by ${names}`;
+          } else {
+            prompt += ' | Trade route: ACTIVE';
+          }
+        } else {
+          prompt += ' | ⚠️ Trade route: BLOCKED (no income)';
+        }
+      } else if (status === 'neutral') {
+        prompt += route ? ' | Trade route: available' : ' | Trade route: no path';
+      }
+      if (rel && rel.embargo) {
+        const youEmbargo = rel.embargo === empire.id || rel.embargo === 'mutual';
+        const theyEmbargo = rel.embargo === other.id || rel.embargo === 'mutual';
+        if (youEmbargo && theyEmbargo) {
+          prompt += ' | ⛔ MUTUAL EMBARGO';
+        } else if (youEmbargo) {
+          prompt += ' | ⛔ You are EMBARGOING them';
+        } else if (theyEmbargo) {
+          prompt += ' | ⛔ They are EMBARGOING you';
+        }
+      }
       prompt += '\n';
     });
     prompt += '\n';
@@ -211,6 +262,24 @@ RESPONSE SCHEMA:
       prompt += `NEIGHBORING TERRITORIES YOU CAN SEE:\n`;
       visible.forEach(v => {
         prompt += `  - ${v.name} (${v.id}): owned by ${v.ownerName} | ${v.armyInfo} [${v.terrain}]\n`;
+      });
+      prompt += '\n';
+    }
+
+    const chokepoints = Object.entries(gameState.territories)
+      .filter(([tid]) => TERRITORY_DATA[tid]?.chokepoint)
+      .map(([tid, terr]) => ({
+        id: tid,
+        name: terr.name,
+        chokepoint: TERRITORY_DATA[tid].chokepoint,
+        owner: terr.ownerId ? (gameState.empires[terr.ownerId]?.name || terr.ownerId) : 'Neutral',
+        ownerId: terr.ownerId,
+      }));
+    if (chokepoints.length > 0) {
+      prompt += `GLOBAL CHOKEPOINTS (control these to tax or block rival trade):\n`;
+      chokepoints.forEach(c => {
+        const ownTag = c.ownerId === empire.id ? ' [YOU CONTROL THIS]' : '';
+        prompt += `  - ${c.name} (${c.id}) — ${c.chokepoint}: owned by ${c.owner}${ownTag}\n`;
       });
       prompt += '\n';
     }

@@ -1,4 +1,4 @@
-import { getEmpireTerritories, getEmpireArmies, adjustConfidence } from './GameState.js';
+import { getEmpireTerritories, getEmpireArmies, adjustConfidence, findTradeRoute, computeChokepointTolls } from './GameState.js';
 import { BUILDING_DEFS, RUSSIA_SEGMENTS } from '../data/territories.js';
 
 export class EconomyEngine {
@@ -197,7 +197,37 @@ export class EconomyEngine {
       for (const rel of Object.values(state.relations)) {
         if (rel.status === 'trade' || rel.status === 'alliance') {
           if (rel.empireA === empire.id || rel.empireB === empire.id) {
-            tradeIncome += rel.tradeValue;
+            const partnerId = rel.empireA === empire.id ? rel.empireB : rel.empireA;
+            const route = findTradeRoute(state, empire.id, partnerId);
+            if (route) {
+              const { toll, tolledBy } = computeChokepointTolls(state, route, empire.id, partnerId);
+              const netTrade = Math.max(0, rel.tradeValue - toll);
+              tradeIncome += netTrade;
+              for (const entry of tolledBy) {
+                const tollEmpire = state.empires[entry.empireId];
+                if (tollEmpire && !tollEmpire.isEliminated) {
+                  tollEmpire.treasury += 1;
+                  if (!tollEmpire._tollCollected) tollEmpire._tollCollected = 0;
+                  tollEmpire._tollCollected += 1;
+                }
+              }
+              if (toll > 0) {
+                const names = tolledBy.map(e => `${e.chokepoint} (${state.empires[e.empireId]?.name || e.empireId})`).join(', ');
+                events.push({
+                  turn: state.meta.turn,
+                  type: 'chokepoint_toll',
+                  description: `${empire.name}'s trade with ${state.empires[partnerId]?.name || partnerId} is taxed ${toll} capital by chokepoint controllers: ${names}`,
+                  involvedEmpires: [empire.id, partnerId, ...tolledBy.map(e => e.empireId)],
+                });
+              }
+            } else if (rel.tradeValue > 0) {
+              events.push({
+                turn: state.meta.turn,
+                type: 'trade_blocked',
+                description: `Trade route between ${empire.name} and ${state.empires[partnerId]?.name || partnerId} is blocked by hostile territory or embargo!`,
+                involvedEmpires: [empire.id, partnerId],
+              });
+            }
           }
         }
       }
@@ -236,6 +266,8 @@ export class EconomyEngine {
           involvedEmpires: [empire.id],
         });
       }
+
+      delete empire._tollCollected;
 
       if (empire.treasury <= 0 && mercUnits > 0) {
         const mercArmies = armies.filter(a => a.isMercenary);

@@ -13,9 +13,9 @@ export class EmpireStats {
       const territories = getEmpireTerritories(gameState, e.id);
       const armies = getEmpireArmies(gameState, e.id);
       const totalUnits = armies.reduce((s, a) => s + a.size, 0);
-      const goldIncome = territories.reduce((s, t) => s + (t.resources.gold || 0), 0);
+      const capitalIncome = territories.reduce((s, t) => s + (t.resources.capital || 0) + (t.buildings?.trade_office ? 2 : 0), 0);
       const terrPct = totalTerr > 0 ? (territories.length / totalTerr) * 100 : 0;
-      return { empire: e, terrCount: territories.length, terrPct, totalUnits, goldIncome };
+      return { empire: e, terrCount: territories.length, terrPct, totalUnits, capitalIncome };
     }).sort((a, b) => b.terrCount - a.terrCount);
 
     this.container.innerHTML = stats.map((s, rank) => {
@@ -49,8 +49,9 @@ export class EmpireStats {
         <div class="es-nums">
           <span class="es-n" title="Army units">${s.totalUnits} <i>units</i></span>
           <span class="es-n" title="Treasury">${e.treasury} <i>cap</i></span>
-          <span class="es-n" title="Gold income">${s.goldIncome} <i>inc</i></span>
+          <span class="es-n" title="Capital income">${s.capitalIncome} <i>inc</i></span>
           <span class="es-n" title="Reputation">${e.reputation} <i>rep</i></span>
+          <span class="es-n" title="Confidence">${e.confidence} <i>conf</i></span>
         </div>
         ${rels ? `<div class="es-rels">${rels}</div>` : ''}
       </div>`;

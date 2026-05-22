@@ -250,6 +250,20 @@ class App {
 
       const { newState, events, movements } = this.engine.resolveTurn(this.gameState);
 
+      for (const ev of events) {
+        if (ev.type !== 'battle' || !ev.territoryId) continue;
+        const losses = [];
+        for (const eId of (ev.winnerEmpireIds || [])) {
+          if (eId !== 'neutral' && ev.winnerLoss > 0) losses.push({ empireId: eId, amount: ev.winnerLoss });
+        }
+        for (const eId of (ev.loserEmpireIds || [])) {
+          if (eId !== 'neutral' && ev.loserLoss > 0) losses.push({ empireId: eId, amount: ev.loserLoss });
+        }
+        if (losses.length > 0) {
+          this.mapController.showCombatText(ev.territoryId, losses, newState);
+        }
+      }
+
       if (movements.length > 0) {
         this.mapController.animateMovements(movements, newState);
       }

@@ -137,6 +137,10 @@ export class CombatResolver {
       description: `${winner.name} defeated ${loser.name} in ${territory.name}! (Lost ${winnerLoss} units, inflicted ${loserLoss} losses)`,
       involvedEmpires: allInvolved,
       territoryId: territory.id,
+      winnerLoss,
+      loserLoss,
+      winnerEmpireIds: [...winner.empireIds],
+      loserEmpireIds: [...loser.empireIds],
     });
 
     for (const eId of winner.empireIds) {

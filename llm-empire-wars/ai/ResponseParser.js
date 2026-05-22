@@ -14,6 +14,8 @@ const ACTION_SCHEMA = {
   propose_alliance:  { required: ['target_empire_id'] },
   break_alliance:    { required: ['target_empire_id'] },
   send_message:      { required: ['target_empire_id', 'message'] },
+  impose_embargo:    { required: ['target_empire_id'] },
+  lift_embargo:      { required: ['target_empire_id'] },
   espionage:         { required: ['target_empire_id'] },
   do_nothing:        { required: [] },
 };
@@ -138,6 +140,8 @@ export class ResponseParser {
       case 'propose_trade':
       case 'propose_alliance':
       case 'break_alliance':
+      case 'impose_embargo':
+      case 'lift_embargo':
       case 'espionage':
         return this._coerceEmpireTarget(action, empireId, gameState);
       case 'send_message':

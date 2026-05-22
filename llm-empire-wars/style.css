@@ -1750,3 +1750,49 @@ body {
   padding: var(--sp-md);
   text-align: center;
 }
+
+/* ═══════════════════════════════════════════
+   MAP OVERLAYS
+   ═══════════════════════════════════════════ */
+
+.war-zone-border {
+  animation: warZonePulse 2s ease-in-out infinite;
+}
+
+@keyframes warZonePulse {
+  0%, 100% { stroke-opacity: 0.35; stroke-width: 2; }
+  50% { stroke-opacity: 0.85; stroke-width: 4; }
+}
+
+.trade-route-blocked {
+  animation: blockedFlicker 3s ease-in-out infinite;
+}
+
+@keyframes blockedFlicker {
+  0%, 100% { stroke-opacity: 0.15; }
+  50% { stroke-opacity: 0.35; }
+}
+
+.fct {
+  position: absolute;
+  font-weight: 700;
+  font-size: 14px;
+  pointer-events: none;
+  animation: fctRise 1.5s ease-out forwards;
+  z-index: 1000;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+@keyframes fctRise {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-30px); }
+}
+
+.heat-territory {
+  animation: heatPulse 2s ease-in-out infinite;
+}
+
+@keyframes heatPulse {
+  0%, 100% { fill-opacity: 0.1; stroke-opacity: 0.3; }
+  50% { fill-opacity: 0.3; stroke-opacity: 0.6; }
+}
