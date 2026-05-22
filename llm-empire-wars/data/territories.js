@@ -42,12 +42,12 @@ export const TERRITORY_DATA = {
   azerbaijan:      { name: 'Azerbaijan',             region: 'europe', resources: { manpower: 2, industry: 2, capital: 3 }, terrain: 'plains' },
 
   // Russia (segmented — visually one polygon, mechanically 6 territories)
-  russia_west:     { name: 'Western Russia',         region: 'europe', resources: { manpower: 4, industry: 3, capital: 3 }, terrain: 'plains', russiaSegment: true },
-  russia_south:    { name: 'Southern Russia',        region: 'europe', resources: { manpower: 3, industry: 2, capital: 2 }, terrain: 'plains', russiaSegment: true },
-  russia_volga:    { name: 'Volga Region',           region: 'europe', resources: { manpower: 3, industry: 3, capital: 2 }, terrain: 'plains', russiaSegment: true },
-  russia_urals:    { name: 'Ural Region',            region: 'europe', resources: { manpower: 2, industry: 3, capital: 2 }, terrain: 'mountains', russiaSegment: true },
-  russia_siberia:  { name: 'Siberia',                region: 'europe', resources: { manpower: 2, industry: 2, capital: 3 }, terrain: 'forest', russiaSegment: true },
-  russia_far_east: { name: 'Russian Far East',       region: 'europe', resources: { manpower: 2, industry: 2, capital: 2 }, terrain: 'forest', russiaSegment: true },
+  russia_west:     { name: 'Western Russia',         region: 'russia', resources: { manpower: 4, industry: 3, capital: 3 }, terrain: 'plains', russiaSegment: true },
+  russia_south:    { name: 'Southern Russia',        region: 'russia', resources: { manpower: 3, industry: 2, capital: 2 }, terrain: 'plains', russiaSegment: true },
+  russia_volga:    { name: 'Volga Region',           region: 'russia', resources: { manpower: 3, industry: 3, capital: 2 }, terrain: 'plains', russiaSegment: true },
+  russia_urals:    { name: 'Ural Region',            region: 'russia', resources: { manpower: 2, industry: 3, capital: 2 }, terrain: 'mountains', russiaSegment: true },
+  russia_siberia:  { name: 'Siberia',                region: 'russia', resources: { manpower: 2, industry: 2, capital: 3 }, terrain: 'forest', russiaSegment: true },
+  russia_far_east: { name: 'Russian Far East',       region: 'russia', resources: { manpower: 2, industry: 2, capital: 2 }, terrain: 'forest', russiaSegment: true },
 
   // Middle East
   syria:           { name: 'Syria',                  region: 'middle_east', resources: { manpower: 2, industry: 2, capital: 1 }, terrain: 'desert' },

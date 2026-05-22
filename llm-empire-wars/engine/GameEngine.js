@@ -22,9 +22,7 @@ export class GameEngine {
     const breakActions = {};
     const warActions = {};
     const buildActions = {};
-    const buyManpowerActions = {};
     const recruitActions = {};
-    const mercActions = {};
     const moveActions = {};
     const otherActions = {};
 
@@ -35,12 +33,10 @@ export class GameEngine {
       warActions[empireId] = actions.filter(a => a.type === 'declare_war');
       embargoActions[empireId] = actions.filter(a => a.type === 'impose_embargo' || a.type === 'lift_embargo');
       buildActions[empireId] = actions.filter(a => a.type === 'build');
-      buyManpowerActions[empireId] = actions.filter(a => a.type === 'buy_manpower');
       recruitActions[empireId] = actions.filter(a => a.type === 'recruit_units');
-      mercActions[empireId] = actions.filter(a => a.type === 'hire_mercenaries');
       moveActions[empireId] = actions.filter(a => a.type === 'move_army');
       otherActions[empireId] = actions.filter(a =>
-        ['propose_trade', 'propose_alliance', 'propose_peace', 'send_message', 'espionage'].includes(a.type)
+        ['propose_trade', 'propose_alliance', 'propose_peace', 'send_message'].includes(a.type)
       );
     }
 
@@ -49,9 +45,7 @@ export class GameEngine {
     allEvents.push(...this.diplomacy.processDiplomaticActions(state, embargoActions));
 
     allEvents.push(...this.economy.processBuilding(state, buildActions));
-    const manpowerBonusMap = this.economy.processBuyManpower(state, buyManpowerActions);
     allEvents.push(...this.economy.processRecruitment(state, recruitActions));
-    allEvents.push(...this.economy.processMercenaries(state, mercActions));
 
     for (const [empireId, actions] of Object.entries(moveActions)) {
       for (const action of actions) {
@@ -66,7 +60,7 @@ export class GameEngine {
     const combatEvents = this.combat.resolve(state);
     allEvents.push(...combatEvents);
 
-    allEvents.push(...this.economy.updateEconomy(state, manpowerBonusMap));
+    allEvents.push(...this.economy.updateEconomy(state));
 
     const worldEvents = this.events.rollEvents(state);
     allEvents.push(...worldEvents);

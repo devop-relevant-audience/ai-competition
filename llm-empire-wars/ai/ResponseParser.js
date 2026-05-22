@@ -6,8 +6,6 @@ const ACTION_SCHEMA = {
   move_army:         { required: ['army_id', 'to'] },
   recruit_units:     { required: ['territory_id', 'amount'] },
   build:             { required: ['territory_id', 'building'] },
-  hire_mercenaries:  { required: ['territory_id', 'amount'] },
-  buy_manpower:      { required: ['amount'] },
   declare_war:       { required: ['target_empire_id'] },
   propose_peace:     { required: ['target_empire_id'] },
   propose_trade:     { required: ['target_empire_id'] },
@@ -16,7 +14,6 @@ const ACTION_SCHEMA = {
   send_message:      { required: ['target_empire_id', 'message'] },
   impose_embargo:    { required: ['target_empire_id'] },
   lift_embargo:      { required: ['target_empire_id'] },
-  espionage:         { required: ['target_empire_id'] },
   do_nothing:        { required: [] },
 };
 
@@ -131,10 +128,6 @@ export class ResponseParser {
         return this._coerceRecruit(action, empireId, gameState);
       case 'build':
         return this._coerceBuild(action, empireId, gameState);
-      case 'hire_mercenaries':
-        return this._coerceHireMercenaries(action, empireId, gameState);
-      case 'buy_manpower':
-        return this._coerceBuyManpower(action, empireId, gameState);
       case 'declare_war':
       case 'propose_peace':
       case 'propose_trade':
@@ -142,7 +135,6 @@ export class ResponseParser {
       case 'break_alliance':
       case 'impose_embargo':
       case 'lift_embargo':
-      case 'espionage':
         return this._coerceEmpireTarget(action, empireId, gameState);
       case 'send_message':
         return this._coerceSendMessage(action, empireId, gameState);
@@ -208,24 +200,6 @@ export class ResponseParser {
     if (!BUILDING_DEFS[building]) return null;
 
     return { ...action, territory_id: tid, building };
-  }
-
-  _coerceHireMercenaries(action, empireId, gameState) {
-    let tid = this._resolveTerritoryId(action.territory_id, gameState);
-
-    if (!tid || !gameState.territories[tid] || gameState.territories[tid].ownerId !== empireId) {
-      const myTerritories = Object.values(gameState.territories).filter(t => t.ownerId === empireId);
-      if (myTerritories.length === 0) return null;
-      tid = myTerritories[0].id;
-    }
-
-    const amount = Math.min(Math.max(1, parseInt(action.amount, 10) || 1), 3);
-    return { ...action, territory_id: tid, amount };
-  }
-
-  _coerceBuyManpower(action, empireId, gameState) {
-    const amount = Math.min(Math.max(1, parseInt(action.amount, 10) || 1), 5);
-    return { ...action, amount };
   }
 
   _coerceEmpireTarget(action, empireId, gameState) {
@@ -334,6 +308,12 @@ export class ResponseParser {
       return { valid: false, error: 'Action is not an object' };
     }
 
+    if (action.type === 'hire_mercenaries') {
+      action.type = 'recruit_units';
+      action.mercenary = true;
+      action.amount = Math.min(parseInt(action.amount, 10) || 1, 3);
+    }
+
     const schema = ACTION_SCHEMA[action.type];
     if (!schema) {
       if (action.type === 'accept_proposal' || action.type === 'reject_proposal') {
@@ -348,10 +328,14 @@ export class ResponseParser {
       }
     }
 
-    if (action.type === 'recruit_units' || action.type === 'hire_mercenaries' || action.type === 'buy_manpower') {
+    if (action.type === 'recruit_units') {
       action.amount = parseInt(action.amount, 10);
       if (isNaN(action.amount) || action.amount < 1) {
         return { valid: false, error: `${action.type}: amount must be >= 1` };
+      }
+      if (action.mercenary) {
+        action.mercenary = true;
+        action.amount = Math.min(action.amount, 3);
       }
     }
 

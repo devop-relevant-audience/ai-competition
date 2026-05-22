@@ -5,7 +5,6 @@ const CHART_DEFS = [
   { key: 'income',      label: 'Income',      metric: 'capitalIncome', yLabel: 'Capital / Turn', fill: false },
   { key: 'industry',    label: 'Industry',    metric: 'industry',      yLabel: 'Industry',      fill: false },
   { key: 'manpower',    label: 'Manpower',    metric: 'manpower',      yLabel: 'Manpower',      fill: false },
-  { key: 'reputation',  label: 'Reputation',  metric: 'reputation',    yLabel: 'Reputation',    fill: false },
   { key: 'confidence',  label: 'Confidence',  metric: 'confidence',    yLabel: 'Confidence',    fill: false },
   { key: 'score',       label: 'Score',        metric: null,            yLabel: 'Score',          fill: false },
 ];
@@ -204,7 +203,7 @@ export class AnalyticsPanel {
             <div class="anl-cell"><span class="anl-val">${latest.treasury}</span><span class="anl-lbl">Capital</span></div>
             <div class="anl-cell"><span class="anl-val">${latest.capitalIncome}/t</span><span class="anl-lbl">Income</span></div>
             <div class="anl-cell"><span class="anl-val">${battle.won}W/${battle.lost}L</span><span class="anl-lbl">Battles</span><span class="anl-sub">${battle.fought} total</span></div>
-            <div class="anl-cell"><span class="anl-val">${latest.reputation}</span><span class="anl-lbl">Rep</span></div>
+            <div class="anl-cell"><span class="anl-val">${latest.confidence}</span><span class="anl-lbl">Conf</span></div>
           </div>
         </div>`;
     }).join('');

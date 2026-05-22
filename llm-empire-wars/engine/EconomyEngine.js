@@ -48,125 +48,80 @@ export class EconomyEngine {
       for (const action of recruitActions) {
         const territory = state.territories[action.territory_id];
         if (!territory || territory.ownerId !== empireId) continue;
+        const isMerc = !!action.mercenary;
 
-        const effectiveProd = territory.resources.industry + (territory.buildings?.factory ? 2 : 0);
-        const maxRecruit = Math.floor(effectiveProd / 2);
-        const amount = Math.min(action.amount || 0, maxRecruit);
-        const goldCost = amount * 3;
+        if (isMerc) {
+          const maxAffordable = Math.floor(empire.treasury / 6);
+          const amount = Math.min(action.amount || 0, 3, maxAffordable);
+          if (amount <= 0) continue;
 
-        if (amount <= 0) continue;
-        if (empire.treasury < goldCost) continue;
+          empire.treasury -= amount * 6;
 
-        empire.treasury -= goldCost;
+          const existingMerc = Object.values(state.armies)
+            .find(a => a.empireId === empireId && a.locationId === action.territory_id && a.isMercenary);
 
-        const existingArmy = Object.values(state.armies)
-          .find(a => a.empireId === empireId && a.locationId === action.territory_id && !a.isMercenary);
+          if (existingMerc) {
+            existingMerc.size += amount;
+          } else {
+            const armyId = `army_${empireId}_merc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+            state.armies[armyId] = {
+              id: armyId,
+              empireId,
+              locationId: action.territory_id,
+              size: amount,
+              movesRemaining: 0,
+              isMercenary: true,
+            };
+          }
 
-        if (existingArmy) {
-          existingArmy.size += amount;
+          events.push({
+            turn: state.meta.turn,
+            type: 'recruitment',
+            description: `${empire.name} hired ${amount} mercenaries in ${territory.name}`,
+            involvedEmpires: [empireId],
+          });
         } else {
-          const armyId = `army_${empireId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-          state.armies[armyId] = {
-            id: armyId,
-            empireId,
-            locationId: action.territory_id,
-            size: amount,
-            movesRemaining: 0,
-            isMercenary: false,
-          };
-        }
+          const effectiveProd = territory.resources.industry + (territory.buildings?.factory ? 2 : 0);
+          const maxRecruit = Math.floor(effectiveProd / 2);
+          const amount = Math.min(action.amount || 0, maxRecruit);
+          const goldCost = amount * 3;
 
-        events.push({
-          turn: state.meta.turn,
-          type: 'recruitment',
-          description: `${empire.name} recruited ${amount} units in ${territory.name}`,
-          involvedEmpires: [empireId],
-        });
+          if (amount <= 0) continue;
+          if (empire.treasury < goldCost) continue;
+
+          empire.treasury -= goldCost;
+
+          const existingArmy = Object.values(state.armies)
+            .find(a => a.empireId === empireId && a.locationId === action.territory_id && !a.isMercenary);
+
+          if (existingArmy) {
+            existingArmy.size += amount;
+          } else {
+            const armyId = `army_${empireId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+            state.armies[armyId] = {
+              id: armyId,
+              empireId,
+              locationId: action.territory_id,
+              size: amount,
+              movesRemaining: 0,
+              isMercenary: false,
+            };
+          }
+
+          events.push({
+            turn: state.meta.turn,
+            type: 'recruitment',
+            description: `${empire.name} recruited ${amount} units in ${territory.name}`,
+            involvedEmpires: [empireId],
+          });
+        }
       }
     }
 
     return events;
   }
 
-  processMercenaries(state, allActions) {
-    const events = [];
-
-    for (const [empireId, actions] of Object.entries(allActions)) {
-      const empire = state.empires[empireId];
-      if (!empire || empire.isEliminated) continue;
-
-      const mercActions = actions.filter(a => a.type === 'hire_mercenaries');
-      for (const action of mercActions) {
-        const territory = state.territories[action.territory_id];
-        if (!territory || territory.ownerId !== empireId) continue;
-
-        const maxAffordable = Math.floor(empire.treasury / 6);
-        const amount = Math.min(action.amount || 0, 3, maxAffordable);
-
-        if (amount <= 0) continue;
-
-        empire.treasury -= amount * 6;
-
-        const existingMerc = Object.values(state.armies)
-          .find(a => a.empireId === empireId && a.locationId === action.territory_id && a.isMercenary);
-
-        if (existingMerc) {
-          existingMerc.size += amount;
-        } else {
-          const armyId = `army_${empireId}_merc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-          state.armies[armyId] = {
-            id: armyId,
-            empireId,
-            locationId: action.territory_id,
-            size: amount,
-            movesRemaining: 0,
-            isMercenary: true,
-          };
-        }
-
-        events.push({
-          turn: state.meta.turn,
-          type: 'mercenaries_hired',
-          description: `${empire.name} hired ${amount} mercenaries in ${territory.name}`,
-          involvedEmpires: [empireId],
-        });
-      }
-    }
-
-    return events;
-  }
-
-  processBuyManpower(state, allActions) {
-    const manpowerBonusMap = new Map();
-
-    for (const [empireId, actions] of Object.entries(allActions)) {
-      const empire = state.empires[empireId];
-      if (!empire || empire.isEliminated) continue;
-
-      const buyActions = actions.filter(a => a.type === 'buy_manpower');
-      if (buyActions.length === 0) continue;
-
-      const action = buyActions[0];
-      const maxAffordable = Math.floor(empire.treasury / 3);
-      const amount = Math.min(action.amount || 0, 5, maxAffordable);
-
-      if (amount <= 0) continue;
-
-      empire.treasury -= amount * 3;
-      manpowerBonusMap.set(empireId, amount);
-
-      state.eventLog.push({
-        turn: state.meta.turn,
-        type: 'manpower_purchased',
-        description: `${empire.name} conscripted ${amount} manpower for ${amount * 3} capital`,
-        involvedEmpires: [empireId],
-      });
-    }
-
-    return manpowerBonusMap;
-  }
-
-  updateEconomy(state, manpowerBonusMap = new Map()) {
+  updateEconomy(state) {
     const events = [];
 
     for (const empire of Object.values(state.empires)) {
@@ -189,9 +144,6 @@ export class EconomyEngine {
         capitalIncome += t.resources.capital + capitalMod + (t.buildings?.trade_office ? 2 : 0);
         totalManpower += t.resources.manpower + manpowerMod + (t.buildings?.housing ? 2 : 0);
       });
-
-      const bonusManpower = manpowerBonusMap.get(empire.id) || 0;
-      totalManpower += bonusManpower;
 
       let tradeIncome = 0;
       for (const rel of Object.values(state.relations)) {

@@ -1,6 +1,45 @@
 import { getEmpireTerritories, getEmpireArmies, getRelation, findTradeRoute, computeChokepointTolls } from '../engine/GameState.js';
 import { ADJACENCY, RUSSIA_SEGMENTS, TERRITORY_DATA } from '../data/territories.js';
 
+/**
+ * Events shown to ALL empires regardless of involvement.
+ * Extend this set when adding new globally significant event types.
+ */
+const GLOBAL_SIGNIFICANT_EVENTS = new Set([
+  'territory_captured',
+  'war_declared',
+  'betrayal',
+  'alliance_formed',
+  'peace_declared',
+  'elimination',
+  'embargo_imposed',
+  'coup',
+  'region_bonus',
+]);
+
+/**
+ * Events shown ONLY to empires that are directly involved.
+ * Everything not in either set is filtered out of the history feed.
+ */
+const SELF_RELEVANT_EVENTS = new Set([
+  'battle',
+  'recruitment',
+  'trade_established',
+  'trade_blocked',
+  'trade_cancelled',
+  'chokepoint_toll',
+  'attrition',
+  'building_constructed',
+  'mercenaries_deserted',
+  'proposal_rejected',
+  'embargo_lifted',
+  'labor_strike',
+  'epidemic',
+  'foreign_investment',
+  'infrastructure_collapse',
+  'population_boom',
+]);
+
 export class PromptBuilder {
   buildSystem(empire) {
     return `You are the leader of ${empire.name}, a state competing for regional dominance in a Cold War-era geopolitical simulation.
@@ -53,7 +92,7 @@ TRADE ROUTES & BLOCKADES:
 EMBARGOES:
 - You can IMPOSE an embargo on any state you are not allied with: { "type": "impose_embargo", "target_empire_id": "string" }
 - Effect: cancels any existing trade agreement with the target AND your territories become impassable for the target's trade routes to OTHER partners. This is a powerful economic weapon — you can choke a rival's entire trade network without declaring war.
-- Imposing an embargo costs you -5 reputation (seen as aggressive by others).
+- Imposing an embargo is seen as aggressive by others and lowers the target's confidence.
 - You can LIFT an embargo to restore normal relations: { "type": "lift_embargo", "target_empire_id": "string" }
 - Embargoes are one-directional: if you embargo State B, YOUR territories block THEIR routes. State B can also embargo you back (mutual embargo).
 - STRATEGY: Embargoes are most powerful when your territory sits between two trading partners. Embargo one of them and their trade income dries up even if they have agreements with others.
@@ -73,10 +112,8 @@ ECONOMY & INFRASTRUCTURE:
   - Trade Office (10 capital): +2 capital income in territory
   - Arms Factory (8 capital): +2 industry (increases recruitment cap by +1)
   - Bunker (12 capital): +0.3 defense bonus for defenders
-- You can HIRE MERCENARIES: 6 capital/unit, max 3/action. Mercs don't consume manpower but cost 1 capital/unit
-  upkeep (double normal). If you go bankrupt, mercs desert.
-- You can BUY MANPOWER: spend 3 capital per manpower for this turn. Max 5 per action. Temporary — not permanent.
 - Regular recruitment costs 3 capital per division and is limited by territory industry.
+- You can recruit MERCENARIES by adding "mercenary": true to a recruit_units action. Mercs cost 6 capital/unit (double), max 3/action. Mercs don't consume manpower but cost 1 capital/unit upkeep (double normal). If you go bankrupt, mercs desert.
 
 REGION BONUSES:
 - RUSSIA: If one state controls ALL six Russian segments (Western Russia, Southern Russia, Volga Region, Ural Region, Siberia, Russian Far East), they receive +5 capital and +3 manpower per turn. This is a massive strategic advantage worth fighting for (or preventing) - keep your eyes on Russia.
@@ -94,10 +131,8 @@ RESPONSE SCHEMA:
   "actions": [
     // Array of 1-5 action objects. Each action has a "type" and type-specific fields:
     // { "type": "move_army", "army_id": "string", "to": "territory_id" }
-    // { "type": "recruit_units", "territory_id": "string", "amount": number }
+    // { "type": "recruit_units", "territory_id": "string", "amount": number, "mercenary": true (optional — costs 6c/unit, max 3, no manpower needed) }
     // { "type": "build", "territory_id": "string", "building": "housing|trade_office|factory|bunker" }
-    // { "type": "hire_mercenaries", "territory_id": "string", "amount": number (1-3) }
-    // { "type": "buy_manpower", "amount": number (1-5) }
     // { "type": "declare_war", "target_empire_id": "string" }
     // { "type": "propose_peace", "target_empire_id": "string" }
     // { "type": "propose_trade", "target_empire_id": "string" }
@@ -120,7 +155,7 @@ RESPONSE SCHEMA:
 
     const confidenceMood = this._getConfidenceMood(empire.confidence);
     prompt += `YOUR STATE: ${empire.name}\n`;
-    prompt += `Treasury: ${empire.treasury} capital | Reputation: ${empire.reputation}/100\n`;
+    prompt += `Treasury: ${empire.treasury} capital\n`;
     prompt += `Confidence: ${empire.confidence}/100 — ${confidenceMood.label}. ${confidenceMood.hint}\n`;
     prompt += `Territories: ${territories.length} | Total divisions: ${armies.reduce((s, a) => s + a.size, 0)} units\n\n`;
 
@@ -140,8 +175,7 @@ RESPONSE SCHEMA:
     const mercUnits = armies.filter(a => a.isMercenary).reduce((s, a) => s + a.size, 0);
     const manpowerSurplus = empTotalManpower - regularUnits;
     const armyUpkeep = Math.floor(regularUnits * 0.5) + (mercUnits * 1);
-    prompt += `MANPOWER BALANCE: ${empTotalManpower} manpower / ${regularUnits} regular divisions (surplus: ${manpowerSurplus >= 0 ? '+' : ''}${manpowerSurplus}) | Military upkeep: ${armyUpkeep} capital/turn\n`;
-    prompt += `BUILD COSTS: Housing 8c (+2 manpower) | Trade Office 10c (+2 capital) | Factory 8c (+1 recruit cap) | Bunker 12c (+defense)\n\n`;
+    prompt += `MANPOWER BALANCE: ${empTotalManpower} manpower / ${regularUnits} regular divisions (surplus: ${manpowerSurplus >= 0 ? '+' : ''}${manpowerSurplus}) | Military upkeep: ${armyUpkeep} capital/turn\n\n`;
 
     prompt += `YOUR DIVISIONS:\n`;
     armies.forEach(a => {
@@ -179,7 +213,7 @@ RESPONSE SCHEMA:
       const rel = getRelation(gameState, empire.id, other.id);
       const status = rel ? rel.status : 'neutral';
       const canInvade = status === 'war' ? ' ⚔️ CAN INVADE' : '';
-      prompt += `  - ${other.name} (${other.id}): ${status.toUpperCase()}${canInvade} | Reputation: ${other.reputation}/100`;
+      prompt += `  - ${other.name} (${other.id}): ${status.toUpperCase()}${canInvade}`;
       const otherTerr = getEmpireTerritories(gameState, other.id);
       prompt += ` | Territories: ${otherTerr.length} | Est. strength: ~${this._estimateVisible(gameState, empire.id, other.id)} units`;
       const route = findTradeRoute(gameState, empire.id, other.id);
@@ -311,7 +345,14 @@ RESPONSE SCHEMA:
       prompt += '\n';
     }
 
-    const recentEvents = gameState.eventLog.filter(e => e.turn >= gameState.meta.turn - 3).slice(-12);
+    const recentEvents = gameState.eventLog
+      .filter(e => e.turn >= gameState.meta.turn - 3)
+      .filter(e => {
+        if (GLOBAL_SIGNIFICANT_EVENTS.has(e.type)) return true;
+        if (SELF_RELEVANT_EVENTS.has(e.type) && e.involvedEmpires?.includes(empire.id)) return true;
+        return false;
+      })
+      .slice(-8);
     if (recentEvents.length > 0) {
       prompt += `RECENT HISTORY (last 3 turns):\n`;
       recentEvents.forEach(e => {
@@ -380,7 +421,7 @@ RESPONSE FORMAT:
       const fromArmies = getEmpireArmies(gameState, p.empireId).reduce((s, a) => s + a.size, 0);
 
       prompt += `- ${from.name} (${p.empireId}) proposes ${type}\n`;
-      prompt += `  Current relation: ${status.toUpperCase()} | Their strength: ${fromTerr} territories, ~${fromArmies} units | Reputation: ${from.reputation}/100\n`;
+      prompt += `  Current relation: ${status.toUpperCase()} | Their strength: ${fromTerr} territories, ~${fromArmies} units\n`;
     }
 
     prompt += `\nYour state: ${empire.name} | Treasury: ${empire.treasury} capital | Territories: ${getEmpireTerritories(gameState, empire.id).length}\n`;

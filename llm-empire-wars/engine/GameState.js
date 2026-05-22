@@ -28,7 +28,6 @@ export function createInitialState(config = {}) {
       color: def.color,
       colorLight: def.colorLight,
       treasury: 20,
-      reputation: 50,
       confidence: 50,
       isEliminated: false,
     };

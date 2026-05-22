@@ -40,12 +40,7 @@ export class DiplomacyEngine {
   }
 
   updateReputations(state) {
-    for (const rel of Object.values(state.relations)) {
-      if (rel.status === 'trade' || rel.status === 'alliance') {
-        state.empires[rel.empireA].reputation = Math.min(100, state.empires[rel.empireA].reputation + 2);
-        state.empires[rel.empireB].reputation = Math.min(100, state.empires[rel.empireB].reputation + 2);
-      }
-    }
+    // Placeholder — reputation was removed; confidence handles morale.
   }
 
   _resolveProposal(state, empireId, action, proposalKind) {
@@ -134,14 +129,13 @@ export class DiplomacyEngine {
     rel.embargo = null;
 
     if (wasAllied) {
-      state.empires[empireId].reputation = Math.max(0, state.empires[empireId].reputation - 30);
       adjustConfidence(state.empires[targetId], -8);
-      adjustConfidence(state.empires[empireId], -3);
+      adjustConfidence(state.empires[empireId], -5);
       events.push(this._makeEvent(state, 'betrayal',
         `${state.empires[empireId].name} BETRAYED their alliance with ${state.empires[targetId].name}!`,
         [empireId, targetId]));
     } else if (wasTrade) {
-      state.empires[empireId].reputation = Math.max(0, state.empires[empireId].reputation - 15);
+      adjustConfidence(state.empires[empireId], -2);
     }
 
     adjustConfidence(state.empires[empireId], 2);
@@ -272,7 +266,6 @@ export class DiplomacyEngine {
       rel.embargo = empireId;
     }
 
-    fromEmpire.reputation = Math.max(0, fromEmpire.reputation - 5);
     adjustConfidence(toEmpire, -2);
 
     events.push(this._makeEvent(state, 'embargo_imposed',
@@ -320,7 +313,7 @@ export class DiplomacyEngine {
     if (!rel || rel.status !== 'alliance') return events;
 
     rel.status = 'neutral';
-    state.empires[empireId].reputation = Math.max(0, state.empires[empireId].reputation - 25);
+    adjustConfidence(state.empires[empireId], -5);
     adjustConfidence(state.empires[targetId], -5);
 
     events.push(this._makeEvent(state, 'alliance_broken',

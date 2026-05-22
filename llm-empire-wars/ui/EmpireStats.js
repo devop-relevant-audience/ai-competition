@@ -50,7 +50,6 @@ export class EmpireStats {
           <span class="es-n" title="Army units">${s.totalUnits} <i>units</i></span>
           <span class="es-n" title="Treasury">${e.treasury} <i>cap</i></span>
           <span class="es-n" title="Capital income">${s.capitalIncome} <i>inc</i></span>
-          <span class="es-n" title="Reputation">${e.reputation} <i>rep</i></span>
           <span class="es-n" title="Confidence">${e.confidence} <i>conf</i></span>
         </div>
         ${rels ? `<div class="es-rels">${rels}</div>` : ''}

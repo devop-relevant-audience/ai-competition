@@ -24,7 +24,6 @@ export class StatsTracker {
         units: totalUnits,
         armies: armies.length,
         treasury: empire.treasury,
-        reputation: empire.reputation,
         confidence: empire.confidence,
         capitalIncome,
         industry,
@@ -110,7 +109,7 @@ export class StatsTracker {
       return (snap.territories * 100)
         + (snap.units * 10)
         + (snap.treasury * 2)
-        + (snap.reputation * 3);
+        + (snap.confidence * 3);
     });
   }
 
