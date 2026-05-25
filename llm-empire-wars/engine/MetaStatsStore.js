@@ -179,6 +179,16 @@ export class MetaStatsStore {
     const reports = await this.getAllReports();
     if (reports.length === 0) return;
 
+    const actionFields = [
+      'move_army', 'recruit_units', 'build', 'research',
+      'declare_war', 'propose_alliance', 'propose_trade', 'propose_peace',
+      'break_alliance', 'send_message', 'impose_embargo', 'lift_embargo',
+      'build_missile', 'launch_missile', 'build_nuke', 'launch_nuke',
+      'uav_recon', 'launch_satellite',
+      'fund_insurgency', 'hack_grid', 'sabotage',
+      'form_bloc', 'invite_bloc', 'leave_bloc', 'bloc_embargo',
+    ];
+
     const headers = [
       'gameId', 'presetKey', 'turnCount', 'reportDate',
       'empireId', 'empireName', 'personality', 'model',
@@ -186,10 +196,7 @@ export class MetaStatsStore {
       'finalTerritories', 'peakTerritories', 'finalUnits', 'peakUnits',
       'finalTreasury', 'finalConfidence',
       'battlesWon', 'battlesLost', 'battlesFought',
-      'action_move_army', 'action_recruit_units', 'action_build',
-      'action_declare_war', 'action_propose_alliance', 'action_propose_trade',
-      'action_propose_peace', 'action_break_alliance', 'action_send_message',
-      'action_impose_embargo', 'action_research',
+      ...actionFields.map(a => `action_${a}`),
     ];
 
     const rows = [headers.join(',')];
@@ -204,12 +211,7 @@ export class MetaStatsStore {
           er.finalTerritories, er.peakTerritories, er.finalUnits, er.peakUnits,
           er.finalTreasury, er.finalConfidence ?? '',
           er.battlesWon, er.battlesLost, er.battlesFought,
-          er.actions?.move_army ?? 0, er.actions?.recruit_units ?? 0,
-          er.actions?.build ?? 0, er.actions?.declare_war ?? 0,
-          er.actions?.propose_alliance ?? 0, er.actions?.propose_trade ?? 0,
-          er.actions?.propose_peace ?? 0, er.actions?.break_alliance ?? 0,
-          er.actions?.send_message ?? 0, er.actions?.impose_embargo ?? 0,
-          er.actions?.research ?? 0,
+          ...actionFields.map(a => er.actions?.[a] ?? 0),
         ];
         rows.push(row.join(','));
       }

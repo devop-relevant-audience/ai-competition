@@ -20,6 +20,20 @@ const ACTION_LABELS = {
   impose_embargo: 'Embargo',
   lift_embargo: 'Lift Emb.',
   research: 'Research',
+  build_missile: 'Build Missile',
+  launch_missile: 'Launch Missile',
+  build_nuke: 'Build Nuke',
+  launch_nuke: 'Launch Nuke',
+  uav_recon: 'UAV Recon',
+  launch_satellite: 'Satellite',
+  fund_insurgency: 'Insurgency',
+  hack_grid: 'Hack Grid',
+  sabotage: 'Sabotage',
+  form_bloc: 'Form Bloc',
+  invite_bloc: 'Invite Bloc',
+  leave_bloc: 'Leave Bloc',
+  bloc_embargo: 'Bloc Embargo',
+  do_nothing: 'Pass',
 };
 
 export class BalanceDashboard {
@@ -378,7 +392,9 @@ export class BalanceDashboard {
     const palette = [
       '#239480', '#e85d04', '#6b3fa0', '#2d6b8b', '#c9652a',
       '#b83a2d', '#4a7c4e', '#ad8a2b', '#c27a23', '#7d4394',
-      '#4a6741', '#3a7ca5',
+      '#4a6741', '#3a7ca5', '#d64545', '#2e8b57', '#8b4513',
+      '#6495ed', '#ff6347', '#20b2aa', '#daa520', '#9370db',
+      '#cd853f', '#708090', '#00ced1', '#b22222', '#556b2f',
     ];
     const labels = empires.map(e => e.empireName.replace(/^The /, ''));
     const datasets = actionTypes.map((aType, i) => ({
@@ -426,7 +442,9 @@ export class BalanceDashboard {
     const palette = [
       '#239480', '#e85d04', '#6b3fa0', '#2d6b8b', '#c9652a',
       '#b83a2d', '#4a7c4e', '#ad8a2b', '#c27a23', '#7d4394',
-      '#4a6741', '#3a7ca5',
+      '#4a6741', '#3a7ca5', '#d64545', '#2e8b57', '#8b4513',
+      '#6495ed', '#ff6347', '#20b2aa', '#daa520', '#9370db',
+      '#cd853f', '#708090', '#00ced1', '#b22222', '#556b2f',
     ];
 
     this.charts[canvasId] = new Chart(canvas, {

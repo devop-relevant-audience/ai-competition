@@ -179,8 +179,11 @@ export class GameReporter {
   _extractKeyEvents(gameState) {
     const keyTypes = new Set([
       'war_declared', 'alliance_formed', 'alliance_broken',
-      'empire_eliminated', 'territory_captured', 'trade_accepted',
+      'empire_eliminated', 'elimination', 'territory_captured', 'trade_accepted',
       'embargo_imposed', 'building_constructed',
+      'nuclear_impact', 'satellite_launched',
+      'insurgency_detected', 'hack_detected', 'sabotage_detected',
+      'bloc_formed', 'bloc_dissolved', 'bloc_embargo',
     ]);
     const events = [];
     for (const entry of gameState.turnHistory || []) {

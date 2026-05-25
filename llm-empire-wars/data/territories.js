@@ -208,6 +208,7 @@ export const BUILDING_DEFS = {
   sam_battery:   { cost: 14, label: 'SAM Battery',           effect: '60% missile interception',             techRequired: 'integrated_defense' },
   radar_station: { cost: 10, label: 'Radar Station',         effect: '2-hop vision around territory',        techRequired: 'signals_intelligence' },
   space_command: { cost: 18, label: 'Space Command Center',  effect: 'enables satellite launch',             techRequired: 'space_supremacy' },
+  cyber_center:  { cost: 14, label: 'Cyber Warfare Center',  effect: 'enables hack actions + boosts counter-intel', techRequired: 'cyber_warfare' },
 };
 
 export const TERRAIN_MODIFIERS = {

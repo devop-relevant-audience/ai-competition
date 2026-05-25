@@ -6,6 +6,8 @@ import { EventSystem } from './EventSystem.js';
 import { ResearchEngine } from './ResearchEngine.js';
 import { MissileEngine } from './MissileEngine.js';
 import { IntelEngine } from './IntelEngine.js';
+import { ShadowEngine } from './ShadowEngine.js';
+import { BlocEngine } from './BlocEngine.js';
 import { ADJACENCY } from '../data/territories.js';
 
 export class GameEngine {
@@ -17,6 +19,8 @@ export class GameEngine {
     this.research = new ResearchEngine();
     this.missile = new MissileEngine();
     this.intel = new IntelEngine();
+    this.shadow = new ShadowEngine();
+    this.bloc = new BlocEngine();
   }
 
   resolveTurn(currentState) {
@@ -40,6 +44,8 @@ export class GameEngine {
     const launchNukeActions = {};
     const uavReconActions = {};
     const launchSatelliteActions = {};
+    const shadowActions = {};
+    const blocActions = {};
 
     for (const [empireId, actions] of Object.entries(allActions)) {
       breakActions[empireId] = actions.filter(a => a.type === 'break_alliance');
@@ -54,25 +60,42 @@ export class GameEngine {
       launchNukeActions[empireId] = actions.filter(a => a.type === 'launch_nuke');
       uavReconActions[empireId] = actions.filter(a => a.type === 'uav_recon');
       launchSatelliteActions[empireId] = actions.filter(a => a.type === 'launch_satellite');
+      shadowActions[empireId] = actions.filter(a => ['fund_insurgency', 'hack_grid', 'sabotage'].includes(a.type));
+      blocActions[empireId] = actions.filter(a => ['form_bloc', 'invite_bloc', 'leave_bloc', 'bloc_embargo'].includes(a.type));
       moveActions[empireId] = actions.filter(a => a.type === 'move_army');
       otherActions[empireId] = actions.filter(a =>
         ['propose_trade', 'propose_alliance', 'propose_peace', 'send_message'].includes(a.type)
       );
     }
 
+    // 1. Break alliances
     allEvents.push(...this.diplomacy.processDiplomaticActions(state, breakActions));
+    // 2. Declare war (+ bloc mutual defense)
     allEvents.push(...this.diplomacy.processDiplomaticActions(state, warActions));
+    // 3. Embargoes (including bloc embargoes)
     allEvents.push(...this.diplomacy.processDiplomaticActions(state, embargoActions));
-
+    allEvents.push(...this.bloc.processBlocEmbargo(state, blocActions));
+    // 4. Bloc actions (form, invite, leave)
+    allEvents.push(...this.bloc.processFormBloc(state, blocActions));
+    allEvents.push(...this.bloc.processInviteBloc(state, blocActions));
+    allEvents.push(...this.bloc.processLeaveBloc(state, blocActions));
+    // 5. Build actions (buildings)
     allEvents.push(...this.economy.processBuilding(state, buildActions));
+    // 6. Recruit
     allEvents.push(...this.economy.processRecruitment(state, recruitActions));
+    // 7. Research
+    allEvents.push(...this.research.processResearchActions(state, researchActions));
+    // 8. Build missiles/nukes
     allEvents.push(...this.missile.processBuildMissile(state, buildMissileActions));
     allEvents.push(...this.missile.processBuildNuke(state, buildNukeActions));
-    allEvents.push(...this.research.processResearchActions(state, researchActions));
-
+    // 9. Shadow operations
+    allEvents.push(...this.shadow.processFundInsurgency(state, shadowActions));
+    allEvents.push(...this.shadow.processHackGrid(state, shadowActions));
+    allEvents.push(...this.shadow.processSabotage(state, shadowActions));
+    // 10. Intel (UAV, satellite)
     allEvents.push(...this.intel.processUavRecon(state, uavReconActions));
     allEvents.push(...this.intel.processLaunchSatellite(state, launchSatelliteActions));
-
+    // 11. Launch missiles/nukes
     const missileResult = this.missile.processLaunchMissile(state, launchMissileActions);
     allEvents.push(...missileResult.events);
     const missileFlights = missileResult.missileFlights;
@@ -80,7 +103,7 @@ export class GameEngine {
     const nukeResult = this.missile.processLaunchNuke(state, launchNukeActions);
     allEvents.push(...nukeResult.events);
     missileFlights.push(...nukeResult.missileFlights);
-
+    // 12. Movement
     for (const [empireId, actions] of Object.entries(moveActions)) {
       for (const action of actions) {
         const result = this._processMovement(state, empireId, action);
@@ -90,22 +113,25 @@ export class GameEngine {
         }
       }
     }
-
+    // 13. Combat
     const combatEvents = this.combat.resolve(state);
     allEvents.push(...combatEvents);
-
+    // 14. Research completion + resource income + intel expiry
     allEvents.push(...this.research.updateResearch(state));
     this.research.updateResourceIncome(state);
     this.intel.expireIntel(state);
+    // 15. Economy update (respects gridDown events)
     allEvents.push(...this.economy.updateEconomy(state));
-
+    // 16. World events
     const worldEvents = this.events.rollEvents(state);
     allEvents.push(...worldEvents);
-
+    // 17. Proposals (trade, alliance, peace, messages)
     allEvents.push(...this.diplomacy.processDiplomaticActions(state, otherActions));
 
     this.diplomacy.updateReputations(state);
-
+    // 18. Bloc integrity check
+    allEvents.push(...this.bloc.checkBlocIntegrity(state));
+    // 19. Elimination check
     allEvents.push(...this.economy.checkElimination(state));
 
     Object.values(state.armies).forEach(a => {

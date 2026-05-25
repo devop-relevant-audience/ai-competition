@@ -22,6 +22,13 @@ const ACTION_SCHEMA = {
   launch_nuke:       { required: ['from_territory_id', 'target_territory_id'] },
   uav_recon:         { required: ['target_territory_id'] },
   launch_satellite:  { required: ['territory_id'] },
+  fund_insurgency:   { required: ['target_territory_id'] },
+  hack_grid:         { required: ['target_territory_id'] },
+  sabotage:          { required: ['target_territory_id'] },
+  form_bloc:         { required: ['bloc_name', 'invite_empire_id'] },
+  invite_bloc:       { required: ['target_empire_id'] },
+  leave_bloc:        { required: [] },
+  bloc_embargo:      { required: ['target_empire_id'] },
   do_nothing:        { required: [] },
 };
 
@@ -160,6 +167,20 @@ export class ResponseParser {
         return this._coerceUavRecon(action, empireId, gameState);
       case 'launch_satellite':
         return this._coerceLaunchSatellite(action, empireId, gameState);
+      case 'fund_insurgency':
+        return this._coerceFundInsurgency(action, empireId, gameState);
+      case 'hack_grid':
+        return this._coerceHackGrid(action, empireId, gameState);
+      case 'sabotage':
+        return this._coerceSabotage(action, empireId, gameState);
+      case 'form_bloc':
+        return this._coerceFormBloc(action, empireId, gameState);
+      case 'invite_bloc':
+        return this._coerceInviteBloc(action, empireId, gameState);
+      case 'leave_bloc':
+        return action;
+      case 'bloc_embargo':
+        return this._coerceBlocEmbargo(action, empireId, gameState);
       default:
         return action;
     }
@@ -380,6 +401,102 @@ export class ResponseParser {
     return { ...action, territory_id: tid };
   }
 
+  _coerceFundInsurgency(action, empireId, gameState) {
+    const empire = gameState.empires[empireId];
+    if (!empire?.techs?.completed?.includes('covert_operations')) return null;
+
+    let targetTid = this._resolveTerritoryId(action.target_territory_id, gameState);
+    if (!targetTid || !gameState.territories[targetTid]) return null;
+
+    const target = gameState.territories[targetTid];
+    if (!target.ownerId || target.ownerId === empireId) return null;
+
+    return { ...action, target_territory_id: targetTid };
+  }
+
+  _coerceHackGrid(action, empireId, gameState) {
+    const empire = gameState.empires[empireId];
+    if (!empire?.techs?.completed?.includes('cyber_warfare')) return null;
+
+    const hasCyberCenter = Object.values(gameState.territories).some(
+      t => t.ownerId === empireId && t.buildings?.cyber_center
+    );
+    if (!hasCyberCenter) return null;
+
+    let targetTid = this._resolveTerritoryId(action.target_territory_id, gameState);
+    if (!targetTid || !gameState.territories[targetTid]) return null;
+
+    const target = gameState.territories[targetTid];
+    if (!target.ownerId || target.ownerId === empireId) return null;
+
+    return { ...action, target_territory_id: targetTid };
+  }
+
+  _coerceSabotage(action, empireId, gameState) {
+    const empire = gameState.empires[empireId];
+    if (!empire?.techs?.completed?.includes('cyber_warfare')) return null;
+
+    const hasCyberCenter = Object.values(gameState.territories).some(
+      t => t.ownerId === empireId && t.buildings?.cyber_center
+    );
+    if (!hasCyberCenter) return null;
+
+    let targetTid = this._resolveTerritoryId(action.target_territory_id, gameState);
+    if (!targetTid || !gameState.territories[targetTid]) return null;
+
+    const target = gameState.territories[targetTid];
+    if (!target.ownerId || target.ownerId === empireId) return null;
+
+    const existingBuildings = Object.keys(target.buildings || {}).filter(b => target.buildings[b]);
+    if (existingBuildings.length === 0) return null;
+
+    return { ...action, target_territory_id: targetTid };
+  }
+
+  _coerceFormBloc(action, empireId, gameState) {
+    if (!action.bloc_name || typeof action.bloc_name !== 'string') return null;
+
+    const inviteId = this._resolveEmpireId(action.invite_empire_id, empireId, gameState);
+    if (!inviteId) return null;
+
+    const key = empireId < inviteId ? `${empireId}__${inviteId}` : `${inviteId}__${empireId}`;
+    const rel = gameState.relations[key];
+    if (!rel || rel.status !== 'alliance') return null;
+
+    if (gameState.blocs) {
+      const alreadyInBloc = Object.values(gameState.blocs).some(
+        b => b.members.includes(empireId)
+      );
+      if (alreadyInBloc) return null;
+    }
+
+    return { ...action, invite_empire_id: inviteId };
+  }
+
+  _coerceInviteBloc(action, empireId, gameState) {
+    const targetId = this._resolveEmpireId(action.target_empire_id, empireId, gameState);
+    if (!targetId) return null;
+
+    if (!gameState.blocs) return null;
+    const myBloc = Object.values(gameState.blocs).find(b => b.members.includes(empireId));
+    if (!myBloc) return null;
+
+    return { ...action, target_empire_id: targetId };
+  }
+
+  _coerceBlocEmbargo(action, empireId, gameState) {
+    const targetId = this._resolveEmpireId(action.target_empire_id, empireId, gameState);
+    if (!targetId) return null;
+
+    if (!gameState.blocs) return null;
+    const myBloc = Object.values(gameState.blocs).find(
+      b => b.founderId === empireId && b.members.includes(empireId)
+    );
+    if (!myBloc) return null;
+
+    return { ...action, target_empire_id: targetId };
+  }
+
   _resolveArmyId(armyId, empireId, gameState) {
     if (gameState.armies[armyId] && gameState.armies[armyId].empireId === empireId) {
       return armyId;
@@ -514,6 +631,12 @@ export class ResponseParser {
     if (action.type === 'launch_missile' || action.type === 'launch_nuke') {
       if (action.from_territory_id === action.target_territory_id) {
         return { valid: false, error: `${action.type}: from and target territory must be different` };
+      }
+    }
+
+    if (action.type === 'form_bloc') {
+      if (!action.bloc_name || typeof action.bloc_name !== 'string' || action.bloc_name.trim().length === 0) {
+        return { valid: false, error: 'form_bloc: bloc_name must be a non-empty string' };
       }
     }
 

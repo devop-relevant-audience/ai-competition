@@ -24,6 +24,12 @@ const GLOBAL_SIGNIFICANT_EVENTS = new Set([
   'nuclear_impact',
   'nuclear_panic',
   'satellite_launched',
+  'bloc_formed',
+  'bloc_dissolved',
+  'bloc_embargo',
+  'insurgency_detected',
+  'hack_detected',
+  'sabotage_detected',
 ]);
 
 /**
@@ -53,6 +59,13 @@ const SELF_RELEVANT_EVENTS = new Set([
   'missile_built',
   'nuke_built',
   'uav_deployed',
+  'insurgency',
+  'hack_grid',
+  'sabotage',
+  'shadow_op_executed',
+  'bloc_joined',
+  'bloc_left',
+  'bloc_expelled',
 ]);
 
 export class PromptBuilder {
@@ -132,6 +145,7 @@ ECONOMY & INFRASTRUCTURE:
   - SAM Battery (14 capital, requires Integrated Defense tech): 60% chance to intercept incoming missiles
   - Radar Station (10 capital, requires Signals Intelligence tech): extends vision to 2 territories away from this location
   - Space Command Center (18 capital, requires Space Supremacy tech): enables satellite launch from this territory
+  - Cyber Warfare Center (14 capital, requires Cyber Warfare tech): enables hack_grid and sabotage actions + boosts counter-intel detection
 - Regular recruitment costs 3 capital per division and is limited by territory industry.
 - You can recruit MERCENARIES by adding "mercenary": true to a recruit_units action. Mercs cost 6 capital/unit (double), max 3/action. Mercs don't consume manpower but cost 1 capital/unit upkeep (double normal). If you go bankrupt, mercs desert.
 
@@ -176,6 +190,39 @@ INTELLIGENCE & SURVEILLANCE:
   This is the ultimate intelligence advantage — permanent region-wide visibility.
 - STRATEGY: Intelligence wins wars. Radar gives you early warning of nearby threats. UAV recon lets you scout key targets before committing forces. Satellites give you god-like awareness of an entire region. Invest in the All-Seeing Eye tech branch to unlock these capabilities.
 
+SHADOW OPERATIONS (Dark Hand tech branch):
+- Fund Insurgency (requires "Covert Operations" Tier 1 tech): { "type": "fund_insurgency", "target_territory_id": "string" }
+  Cost: 8 capital. Spawns a hostile neutral army (size 2) in the target territory. The target doesn't need to be an enemy — you can destabilize anyone.
+  Detection: 30% chance the target discovers you're responsible (70% if they have a Cyber Warfare Center in that territory).
+  STRATEGY: Use this to weaken rivals without declaring war, soften up invasion targets, or create chaos in a competitor's rear territories.
+- Cyber Warfare Center (building, requires "Cyber Warfare" Tier 2 tech, costs 14 capital): enables hack actions AND boosts counter-intel detection in that territory.
+- Hack Grid (requires "Cyber Warfare" tech + owning a Cyber Warfare Center): { "type": "hack_grid", "target_territory_id": "string" }
+  Cost: 6 capital. Shuts down ALL building bonuses (trade_office, housing, factory) in target territory for 2 turns.
+  Detection: 40% base (70% if target has Cyber Warfare Center).
+  STRATEGY: Cripple an enemy's economy without firing a shot. Target their richest territories or key industrial hubs.
+- Sabotage (requires "Cyber Warfare" tech + Cyber Warfare Center): { "type": "sabotage", "target_territory_id": "string" }
+  Cost: 8 capital. PERMANENTLY destroys one random building in the target territory. Cannot target empty territories.
+  Detection: 50% base (80% if target has Cyber Warfare Center).
+  STRATEGY: Destroy expensive infrastructure like Missile Silos, SAM Batteries, or Research Labs. Devastating against well-developed enemies.
+
+BLOCS (Multi-Empire Coalitions):
+- Blocs are formal multi-empire coalitions that provide shared visibility, mutual defense, and collective embargo power.
+- An empire can only be in ONE bloc at a time.
+- All bloc members must maintain mutual alliance status. If any member breaks alliance with another, they are expelled.
+- Form Bloc: { "type": "form_bloc", "bloc_name": "string", "invite_empire_id": "string" }
+  Cost: 5 capital. Creates a new coalition with you and the invited empire. You must be allied with the invitee.
+- Invite to Bloc: { "type": "invite_bloc", "target_empire_id": "string" }
+  Free. Invite another empire to join your bloc. They must be allied with ALL current bloc members.
+- Leave Bloc: { "type": "leave_bloc" }
+  Voluntarily leave your coalition. If only 1 member remains, the bloc dissolves.
+- Bloc Embargo (founder only): { "type": "bloc_embargo", "target_empire_id": "string" }
+  Imposes embargo from ALL bloc members simultaneously. Individual members cannot unilaterally lift a bloc embargo.
+- BLOC BENEFITS:
+  - Shared Visibility: All bloc members share their adjacent territory and radar vision.
+  - Mutual Defense: Attack one bloc member, ALL members automatically declare war on the aggressor.
+  - Collective Economic Pressure: Bloc embargoes are devastating — an entire coalition's territories block the target's trade.
+- STRATEGY: Blocs are the ultimate diplomatic weapon. Form one with trusted allies to create an unbreakable defensive pact and dominate trade routes. But beware — if a bloc becomes too powerful, other empires may unite against you.
+
 RARE RESOURCES:
 - Some territories contain rare resources: Oil, Uranium, Rare Earths, or Titanium.
 - Each resource territory you control gives +1 of that resource/turn to your stockpile AND +1 capital/turn as an economic bonus.
@@ -211,7 +258,7 @@ RESPONSE SCHEMA:
     // Array of 1-5 action objects. Each action has a "type" and type-specific fields:
     // { "type": "move_army", "army_id": "string", "to": "territory_id" }
     // { "type": "recruit_units", "territory_id": "string", "amount": number, "mercenary": true (optional — costs 6c/unit, max 3, no manpower needed) }
-    // { "type": "build", "territory_id": "string", "building": "housing|trade_office|factory|bunker|research_lab|missile_silo|sam_battery|radar_station|space_command" }
+    // { "type": "build", "territory_id": "string", "building": "housing|trade_office|factory|bunker|research_lab|missile_silo|sam_battery|radar_station|space_command|cyber_center" }
     // { "type": "research", "tech_id": "string", "lab_territory_id": "string (optional)" }
     // { "type": "declare_war", "target_empire_id": "string" }
     // { "type": "propose_peace", "target_empire_id": "string" }
@@ -226,6 +273,13 @@ RESPONSE SCHEMA:
     // { "type": "launch_nuke", "from_territory_id": "string", "target_territory_id": "string" }
     // { "type": "uav_recon", "target_territory_id": "string" }
     // { "type": "launch_satellite", "territory_id": "string" }
+    // { "type": "fund_insurgency", "target_territory_id": "string" }
+    // { "type": "hack_grid", "target_territory_id": "string" }
+    // { "type": "sabotage", "target_territory_id": "string" }
+    // { "type": "form_bloc", "bloc_name": "string", "invite_empire_id": "string" }
+    // { "type": "invite_bloc", "target_empire_id": "string" }
+    // { "type": "leave_bloc" }
+    // { "type": "bloc_embargo", "target_empire_id": "string" }
     // { "type": "send_message", "target_empire_id": "string", "message": "string" }
     // { "type": "do_nothing" }
   ]
@@ -387,6 +441,45 @@ RESPONSE SCHEMA:
         }
       } else if (empire.techs?.completed?.includes('space_supremacy')) {
         prompt += `  No Space Command Center built yet. Build one (18 capital) to launch satellites.\n`;
+      }
+      prompt += '\n';
+    }
+
+    const hasCovertOps = empire.techs?.completed?.includes('covert_operations');
+    const hasCyberWarfare = empire.techs?.completed?.includes('cyber_warfare');
+    const cyberCenters = territories.filter(t => t.buildings?.cyber_center);
+
+    if (hasCovertOps || hasCyberWarfare || cyberCenters.length > 0) {
+      prompt += `SHADOW ASSETS:\n`;
+      if (hasCovertOps) {
+        prompt += `  Fund Insurgency available (8 capital, spawns hostile neutral army in enemy territory)\n`;
+      }
+      if (hasCyberWarfare && cyberCenters.length > 0) {
+        prompt += `  Cyber Warfare Centers: ${cyberCenters.map(t => t.name).join(', ')}\n`;
+        prompt += `  Hack Grid available (6 capital, disables building bonuses for 2 turns)\n`;
+        prompt += `  Sabotage available (8 capital, destroys 1 random building permanently)\n`;
+      } else if (hasCyberWarfare) {
+        prompt += `  No Cyber Warfare Centers built yet. Build one (14 capital) to enable hack_grid and sabotage.\n`;
+      }
+      prompt += '\n';
+    }
+
+    if (gameState.blocs && Object.keys(gameState.blocs).length > 0) {
+      const myBloc = Object.values(gameState.blocs).find(b => b.members.includes(empire.id));
+      prompt += `BLOC STATUS:\n`;
+      if (myBloc) {
+        const memberNames = myBloc.members.map(id => gameState.empires[id]?.name || id).join(', ');
+        const isFounder = myBloc.founderId === empire.id;
+        prompt += `  Your bloc: "${myBloc.name}" (${isFounder ? 'FOUNDER' : 'member'})\n`;
+        prompt += `  Members: ${memberNames}\n`;
+        prompt += `  Benefits: shared vision, mutual defense, bloc embargo power${isFounder ? ' (you can issue bloc embargoes)' : ''}\n`;
+      } else {
+        prompt += `  You are not in a bloc. Form one with an ally (5 capital) or wait for an invitation.\n`;
+        const existingBlocs = Object.values(gameState.blocs);
+        for (const bloc of existingBlocs) {
+          const memberNames = bloc.members.map(id => gameState.empires[id]?.name || id).join(', ');
+          prompt += `  Active bloc: "${bloc.name}" — Members: ${memberNames}\n`;
+        }
       }
       prompt += '\n';
     }
@@ -726,6 +819,7 @@ RESPONSE FORMAT:
     const samTag = t.buildings?.sam_battery ? ' [SAM]' : '';
     const radarTag = t.buildings?.radar_station ? ' [RADAR]' : '';
     const spaceTag = t.buildings?.space_command ? ' [SPACE CMD]' : '';
+    const cyberTag = t.buildings?.cyber_center ? ' [CYBER]' : '';
     const wastelandTag = t.wasteland ? ' [WASTELAND]' : '';
 
     const armyInfo = armies.length > 0 ? `armies present (${armies.length} groups)` : 'no armies';
@@ -758,7 +852,7 @@ RESPONSE FORMAT:
       armyInfo,
       detailedArmyInfo,
       buildings,
-      tags: `${resTag}${siloTag}${nukeTag}${samTag}${radarTag}${spaceTag}${wastelandTag}`,
+      tags: `${resTag}${siloTag}${nukeTag}${samTag}${radarTag}${spaceTag}${cyberTag}${wastelandTag}`,
     };
   }
 

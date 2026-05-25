@@ -635,6 +635,17 @@ body {
   letter-spacing: 0.3px;
 }
 
+.es-bloc-tag {
+  font-size: 9px;
+  font-weight: 600;
+  color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.12);
+  padding: 1px 5px;
+  border-radius: var(--r-pill);
+  letter-spacing: 0.3px;
+  margin-left: 4px;
+}
+
 /* territory progress bar */
 .es-bar-row {
   display: flex;

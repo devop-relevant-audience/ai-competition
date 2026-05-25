@@ -71,6 +71,8 @@ function migrateState(record) {
     record.version = SAVE_VERSION;
   }
 
+  if (!gs.blocs) gs.blocs = {};
+
   return record;
 }
 

@@ -137,14 +137,21 @@ export class EconomyEngine {
       territories.forEach(t => {
         let manpowerMod = 0;
         let capitalMod = 0;
+        let gridDown = false;
         state.activeEvents.forEach(evt => {
           if (evt.affectedTerritoryId === t.id) {
             manpowerMod += evt.effect.manpower || 0;
             capitalMod += evt.effect.capital || 0;
+            if (evt.effect.gridDown) gridDown = true;
           }
         });
-        capitalIncome += t.resources.capital + capitalMod + (t.buildings?.trade_office ? 2 : 0);
-        totalManpower += t.resources.manpower + manpowerMod + (t.buildings?.housing ? 2 : 0);
+        const buildingBonus = gridDown ? { trade: 0, housing: 0, factory: 0 } : {
+          trade: t.buildings?.trade_office ? 2 : 0,
+          housing: t.buildings?.housing ? 2 : 0,
+          factory: t.buildings?.factory ? 2 : 0,
+        };
+        capitalIncome += t.resources.capital + capitalMod + buildingBonus.trade;
+        totalManpower += t.resources.manpower + manpowerMod + buildingBonus.housing;
       });
 
       let tradeIncome = 0;

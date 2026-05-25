@@ -205,7 +205,18 @@ export class DiplomacyEngine {
       return allies;
     };
 
-    for (const allyId of alliesOf(targetId)) {
+    const getBlocMembers = (eId) => {
+      if (!state.blocs) return [];
+      const bloc = Object.values(state.blocs).find(b => b.members.includes(eId));
+      return bloc ? bloc.members.filter(id => id !== eId) : [];
+    };
+
+    const defenderAllies = new Set(alliesOf(targetId));
+    for (const blocMemberId of getBlocMembers(targetId)) {
+      defenderAllies.add(blocMemberId);
+    }
+
+    for (const allyId of defenderAllies) {
       if (allyId === aggressorId) continue;
       const allyKey = getRelationKey(aggressorId, allyId);
       const allyRel = state.relations[allyKey];
@@ -220,7 +231,12 @@ export class DiplomacyEngine {
         [allyId, aggressorId, targetId]));
     }
 
-    for (const allyId of alliesOf(aggressorId)) {
+    const aggressorAllies = new Set(alliesOf(aggressorId));
+    for (const blocMemberId of getBlocMembers(aggressorId)) {
+      aggressorAllies.add(blocMemberId);
+    }
+
+    for (const allyId of aggressorAllies) {
       if (allyId === targetId) continue;
       const allyKey = getRelationKey(targetId, allyId);
       const allyRel = state.relations[allyKey];

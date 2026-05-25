@@ -26,6 +26,7 @@ export class EmpireStats {
   update(gameState) {
     const empires = Object.values(gameState.empires);
     const totalTerr = getTotalTerritories(gameState);
+    const blocs = gameState.blocs || {};
 
     const stats = empires.map(e => {
       const territories = getEmpireTerritories(gameState, e.id);
@@ -33,7 +34,8 @@ export class EmpireStats {
       const totalUnits = armies.reduce((s, a) => s + a.size, 0);
       const capitalIncome = territories.reduce((s, t) => s + (t.resources.capital || 0) + (t.buildings?.trade_office ? 2 : 0), 0);
       const terrPct = totalTerr > 0 ? (territories.length / totalTerr) * 100 : 0;
-      return { empire: e, terrCount: territories.length, terrPct, totalUnits, capitalIncome };
+      const bloc = Object.values(blocs).find(b => b.members.includes(e.id));
+      return { empire: e, terrCount: territories.length, terrPct, totalUnits, capitalIncome, bloc };
     }).sort((a, b) => b.terrCount - a.terrCount);
 
     this.container.innerHTML = stats.map((s, rank) => {
@@ -54,6 +56,7 @@ export class EmpireStats {
 
       const resourceHtml = this._buildResourceRow(e);
       const techHtml = this._buildTechDots(e);
+      const blocTag = s.bloc ? `<span class="es-bloc-tag" title="${this._esc(s.bloc.name)}">⬡ ${this._esc(s.bloc.name)}</span>` : '';
 
       return `
       <div class="es-card${isLeader ? ' es-leader' : ''}${elim ? ' es-elim' : ''}">
@@ -62,6 +65,7 @@ export class EmpireStats {
           <span class="es-dot" style="background:${e.color}"></span>
           <span class="es-name" style="color:${e.color}">${this._esc(e.name)}</span>
           ${elim ? '<span class="es-elim-tag">ELIM</span>' : ''}
+          ${blocTag}
         </div>
         <div class="es-bar-row">
           <div class="es-bar"><div class="es-bar-fill" style="width:${s.terrPct}%;background:${e.color}"></div></div>

@@ -133,6 +133,38 @@ export class IntelEngine {
       }
     }
 
+    // Bloc shared visibility: union adjacent + radar from all bloc members
+    if (state.blocs) {
+      const myBloc = Object.values(state.blocs).find(b => b.members.includes(empireId));
+      if (myBloc) {
+        for (const memberId of myBloc.members) {
+          if (memberId === empireId) continue;
+          const memberTerritories = new Set(
+            getEmpireTerritories(state, memberId).map(t => t.id)
+          );
+          for (const tid of memberTerritories) {
+            for (const neighbor of (ADJACENCY[tid] || [])) {
+              if (!myTerritories.has(neighbor) && !memberTerritories.has(neighbor)) {
+                adjacent.add(neighbor);
+              }
+            }
+          }
+          for (const tid of memberTerritories) {
+            const terr = state.territories[tid];
+            if (!terr?.buildings?.radar_station) continue;
+            for (const hop1 of (ADJACENCY[tid] || [])) {
+              if (memberTerritories.has(hop1) || myTerritories.has(hop1)) continue;
+              for (const hop2 of (ADJACENCY[hop1] || [])) {
+                if (!myTerritories.has(hop2) && !memberTerritories.has(hop2) && !adjacent.has(hop2)) {
+                  radar.add(hop2);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     const uav = new Set();
     if (empire.intel?.uavRecon) {
       for (const entry of empire.intel.uavRecon) {

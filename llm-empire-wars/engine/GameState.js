@@ -150,6 +150,7 @@ export function createInitialState(config = {}) {
     turnHistory: [],
     eventLog: [],
     activeEvents: [],
+    blocs: {},
   };
 }
 
