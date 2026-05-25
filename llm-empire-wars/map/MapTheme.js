@@ -8,8 +8,19 @@ export const MAP_CONFIG = {
 
 export const NEUTRAL_COLOR = '#1a1b1e';
 export const BORDER_COLOR = '#0a0a0c';
+export const WASTELAND_COLOR = '#1a0a0a';
 
-export function getTerritoryStyle(empire) {
+export function getTerritoryStyle(empire, isWasteland = false) {
+  if (isWasteland) {
+    return {
+      fillColor: WASTELAND_COLOR,
+      fillOpacity: 0.45,
+      color: '#3a1515',
+      opacity: 0.7,
+      weight: 1.2,
+      dashArray: '4,3',
+    };
+  }
   return {
     fillColor: empire ? empire.color : NEUTRAL_COLOR,
     fillOpacity: empire ? 0.38 : 0.20,
@@ -20,7 +31,16 @@ export function getTerritoryStyle(empire) {
   };
 }
 
-export function getHighlightStyle(empire) {
+export function getHighlightStyle(empire, isWasteland = false) {
+  if (isWasteland) {
+    return {
+      fillColor: '#2a1010',
+      fillOpacity: 0.55,
+      color: '#ff3333',
+      opacity: 0.6,
+      weight: 1.5,
+    };
+  }
   return {
     fillColor: empire ? empire.color : '#34363b',
     fillOpacity: empire ? 0.5 : 0.30,

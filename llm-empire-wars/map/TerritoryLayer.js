@@ -39,6 +39,7 @@ export class TerritoryLayer {
     }
 
     const territory = this.gameState.territories[tid];
+    if (territory?.wasteland) return getTerritoryStyle(null, true);
     if (!territory || !territory.ownerId) return getTerritoryStyle(null);
     const empire = this.gameState.empires[territory.ownerId];
     return getTerritoryStyle(empire);
@@ -71,8 +72,13 @@ export class TerritoryLayer {
         const dominantEmpire = this._getRussiaDominantOwner();
         layer.setStyle(getHighlightStyle(dominantEmpire));
       } else {
-        const empire = this._getEmpireForFeature(feature);
-        layer.setStyle(getHighlightStyle(empire));
+        const territory = this.gameState?.territories[tid];
+        if (territory?.wasteland) {
+          layer.setStyle(getHighlightStyle(null, true));
+        } else {
+          const empire = this._getEmpireForFeature(feature);
+          layer.setStyle(getHighlightStyle(empire));
+        }
       }
       layer.bringToFront();
       this._showTooltip(e, feature);
@@ -115,6 +121,17 @@ export class TerritoryLayer {
     const territory = this.gameState.territories[tid];
     if (!territory) return;
 
+    if (territory.wasteland) {
+      let html = `<div class="tooltip-name" style="color: #ff3333;">${territory.name}</div>`;
+      html += `<div style="color: #cc2222; font-weight: 600; font-size: 12px; margin: 4px 0;">☢️ WASTELAND</div>`;
+      html += `<div style="color: #888; font-size: 11px;">Irradiated, permanently destroyed.</div>`;
+      html += `<div style="color: #666; font-size: 11px; margin-top: 4px;">Cannot be captured or used.</div>`;
+      this.tooltip.innerHTML = html;
+      this.tooltip.classList.remove('hidden');
+      this._moveTooltip(e);
+      return;
+    }
+
     const empire = territory.ownerId ? this.gameState.empires[territory.ownerId] : null;
     const armies = Object.values(this.gameState.armies).filter(a => a.locationId === tid);
 
@@ -136,13 +153,21 @@ export class TerritoryLayer {
     }
     const buildingNames = Object.keys(territory.buildings || {}).filter(b => territory.buildings[b]);
     if (buildingNames.length > 0) {
-      html += `<div style="color: var(--ink-tertiary); font-size: 11px; margin-top: 4px;">Buildings: ${buildingNames.map(b => b.charAt(0).toUpperCase() + b.slice(1)).join(', ')}</div>`;
+      html += `<div style="color: var(--ink-tertiary); font-size: 11px; margin-top: 4px;">Buildings: ${buildingNames.map(b => b.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())).join(', ')}</div>`;
+    }
+    const convMissiles = territory.missiles || 0;
+    const nukeMissiles = territory.nukes || 0;
+    if (convMissiles > 0 || nukeMissiles > 0) {
+      const total = convMissiles + nukeMissiles;
+      let missileStr = `${convMissiles} conventional`;
+      if (nukeMissiles > 0) missileStr += ` / ${nukeMissiles} nuclear`;
+      html += `<div style="color: ${nukeMissiles > 0 ? '#ff3333' : '#ff6633'}; font-size: 11px; margin-top: 2px;">Warheads: ${missileStr} (${total}/3)</div>`;
     }
     if (armies.length > 0) {
       html += `<div style="margin-top: 4px; font-size: 12px;">`;
       armies.forEach(a => {
         const ae = this.gameState.empires[a.empireId];
-        html += `<span style="color: ${ae.color}">Army: ${a.size} units</span> `;
+        html += `<span style="color: ${ae?.color || '#888'}">Army: ${a.size} units</span> `;
       });
       html += `</div>`;
     }

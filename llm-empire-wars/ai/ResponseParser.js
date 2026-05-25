@@ -16,6 +16,12 @@ const ACTION_SCHEMA = {
   send_message:      { required: ['target_empire_id', 'message'] },
   impose_embargo:    { required: ['target_empire_id'] },
   lift_embargo:      { required: ['target_empire_id'] },
+  build_missile:     { required: ['territory_id'] },
+  launch_missile:    { required: ['from_territory_id', 'target_territory_id'] },
+  build_nuke:        { required: ['territory_id'] },
+  launch_nuke:       { required: ['from_territory_id', 'target_territory_id'] },
+  uav_recon:         { required: ['target_territory_id'] },
+  launch_satellite:  { required: ['territory_id'] },
   do_nothing:        { required: [] },
 };
 
@@ -142,6 +148,18 @@ export class ResponseParser {
         return this._coerceEmpireTarget(action, empireId, gameState);
       case 'send_message':
         return this._coerceSendMessage(action, empireId, gameState);
+      case 'build_missile':
+        return this._coerceBuildMissile(action, empireId, gameState);
+      case 'launch_missile':
+        return this._coerceLaunchMissile(action, empireId, gameState);
+      case 'build_nuke':
+        return this._coerceBuildNuke(action, empireId, gameState);
+      case 'launch_nuke':
+        return this._coerceLaunchNuke(action, empireId, gameState);
+      case 'uav_recon':
+        return this._coerceUavRecon(action, empireId, gameState);
+      case 'launch_satellite':
+        return this._coerceLaunchSatellite(action, empireId, gameState);
       default:
         return action;
     }
@@ -236,6 +254,130 @@ export class ResponseParser {
     const resolved = this._resolveEmpireId(action.target_empire_id, empireId, gameState);
     if (!resolved) return null;
     return { ...action, target_empire_id: resolved, message: action.message || '...' };
+  }
+
+  _coerceBuildMissile(action, empireId, gameState) {
+    let tid = this._resolveTerritoryId(action.territory_id, gameState);
+
+    if (!tid || !gameState.territories[tid] || gameState.territories[tid].ownerId !== empireId) {
+      const mysilos = Object.values(gameState.territories).filter(
+        t => t.ownerId === empireId && t.buildings?.missile_silo &&
+          (t.missiles || 0) + (t.nukes || 0) < 3
+      );
+      if (mysilos.length === 0) return null;
+      tid = mysilos[0].id;
+    }
+
+    const territory = gameState.territories[tid];
+    if (!territory?.buildings?.missile_silo) return null;
+    if ((territory.missiles || 0) + (territory.nukes || 0) >= 3) return null;
+
+    return { ...action, territory_id: tid };
+  }
+
+  _coerceLaunchMissile(action, empireId, gameState) {
+    let fromTid = this._resolveTerritoryId(action.from_territory_id, gameState);
+
+    if (!fromTid || !gameState.territories[fromTid] || gameState.territories[fromTid].ownerId !== empireId) {
+      const silosWithMissiles = Object.values(gameState.territories).filter(
+        t => t.ownerId === empireId && t.buildings?.missile_silo && (t.missiles || 0) > 0
+      );
+      if (silosWithMissiles.length === 0) return null;
+      fromTid = silosWithMissiles[0].id;
+    }
+
+    const from = gameState.territories[fromTid];
+    if (!from?.buildings?.missile_silo || (from.missiles || 0) <= 0) return null;
+
+    let targetTid = this._resolveTerritoryId(action.target_territory_id, gameState);
+    if (!targetTid || !gameState.territories[targetTid]) return null;
+
+    const targetOwner = gameState.territories[targetTid].ownerId;
+    if (targetOwner === empireId) return null;
+    if (targetOwner && targetOwner !== 'neutral') {
+      const rel = this._getRelWithOwner(gameState, empireId, targetOwner);
+      if (!rel || rel.status !== 'war') return null;
+    }
+
+    return { ...action, from_territory_id: fromTid, target_territory_id: targetTid };
+  }
+
+  _coerceBuildNuke(action, empireId, gameState) {
+    const empire = gameState.empires[empireId];
+    if (!empire?.techs?.completed?.includes('nuclear_arsenal')) return null;
+
+    let tid = this._resolveTerritoryId(action.territory_id, gameState);
+
+    if (!tid || !gameState.territories[tid] || gameState.territories[tid].ownerId !== empireId) {
+      const mysilos = Object.values(gameState.territories).filter(
+        t => t.ownerId === empireId && t.buildings?.missile_silo &&
+          (t.missiles || 0) + (t.nukes || 0) < 3
+      );
+      if (mysilos.length === 0) return null;
+      tid = mysilos[0].id;
+    }
+
+    const territory = gameState.territories[tid];
+    if (!territory?.buildings?.missile_silo) return null;
+    if ((territory.missiles || 0) + (territory.nukes || 0) >= 3) return null;
+
+    return { ...action, territory_id: tid };
+  }
+
+  _coerceLaunchNuke(action, empireId, gameState) {
+    const empire = gameState.empires[empireId];
+    if (!empire?.techs?.completed?.includes('nuclear_arsenal')) return null;
+
+    let fromTid = this._resolveTerritoryId(action.from_territory_id, gameState);
+
+    if (!fromTid || !gameState.territories[fromTid] || gameState.territories[fromTid].ownerId !== empireId) {
+      const silosWithNukes = Object.values(gameState.territories).filter(
+        t => t.ownerId === empireId && t.buildings?.missile_silo && (t.nukes || 0) > 0
+      );
+      if (silosWithNukes.length === 0) return null;
+      fromTid = silosWithNukes[0].id;
+    }
+
+    const from = gameState.territories[fromTid];
+    if (!from?.buildings?.missile_silo || (from.nukes || 0) <= 0) return null;
+
+    let targetTid = this._resolveTerritoryId(action.target_territory_id, gameState);
+    if (!targetTid || !gameState.territories[targetTid]) return null;
+
+    const targetTerritory = gameState.territories[targetTid];
+    if (targetTerritory.wasteland) return null;
+    const targetOwner = targetTerritory.ownerId;
+    if (targetOwner === empireId) return null;
+    if (targetOwner && targetOwner !== 'neutral') {
+      const rel = this._getRelWithOwner(gameState, empireId, targetOwner);
+      if (!rel || rel.status !== 'war') return null;
+    }
+
+    return { ...action, from_territory_id: fromTid, target_territory_id: targetTid };
+  }
+
+  _coerceUavRecon(action, empireId, gameState) {
+    let targetTid = this._resolveTerritoryId(action.target_territory_id, gameState);
+    if (!targetTid || !gameState.territories[targetTid]) return null;
+    return { ...action, target_territory_id: targetTid };
+  }
+
+  _coerceLaunchSatellite(action, empireId, gameState) {
+    let tid = this._resolveTerritoryId(action.territory_id, gameState);
+
+    if (!tid || !gameState.territories[tid] || gameState.territories[tid].ownerId !== empireId) {
+      const cmds = Object.values(gameState.territories).filter(
+        t => t.ownerId === empireId && t.buildings?.space_command && !t.satelliteLaunched
+      );
+      if (cmds.length === 0) return null;
+      tid = cmds[0].id;
+    }
+
+    const territory = gameState.territories[tid];
+    if (!territory?.buildings?.space_command) return null;
+    if (territory.satelliteLaunched) return null;
+
+    return { ...action, territory_id: tid };
   }
 
   _resolveArmyId(armyId, empireId, gameState) {
@@ -366,6 +508,12 @@ export class ResponseParser {
     if (action.type === 'build') {
       if (!BUILDING_DEFS[action.building]) {
         return { valid: false, error: `build: building must be one of ${Object.keys(BUILDING_DEFS).join(', ')}` };
+      }
+    }
+
+    if (action.type === 'launch_missile' || action.type === 'launch_nuke') {
+      if (action.from_territory_id === action.target_territory_id) {
+        return { valid: false, error: `${action.type}: from and target territory must be different` };
       }
     }
 

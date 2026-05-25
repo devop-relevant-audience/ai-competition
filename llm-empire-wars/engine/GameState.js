@@ -40,6 +40,10 @@ export function createInitialState(config = {}) {
         completed: [],
         inProgress: {},
       },
+      intel: {
+        uavRecon: [],
+        satellites: [],
+      },
     };
   });
 
@@ -169,7 +173,7 @@ export function getEmpireArmies(state, empireId) {
 }
 
 export function getTotalTerritories(state) {
-  if (state) return Object.keys(state.territories).length;
+  if (state) return Object.values(state.territories).filter(t => !t.wasteland).length;
   return Object.keys(TERRITORY_DATA).length;
 }
 

@@ -24,11 +24,11 @@ export const TECH_DEFS = {
     branch: 'military',
     tier: 3,
     label: 'Nuclear Arsenal',
-    description: 'Missiles become nuclear: 3x damage, destroy buildings, radiation zone',
+    description: 'Unlocks build_nuke / launch_nuke — permanent wasteland, MAD retaliation',
     prerequisite: 'ballistic_missiles',
-    cost: { capital: 20, uranium: 5 },
-    researchTurns: 4,
-    effect: { nuclearMissiles: true },
+    cost: { capital: 35, uranium: 8 },
+    researchTurns: 5,
+    effect: { unlocks: ['build_nuke', 'launch_nuke'] },
   },
   // INTELLIGENCE BRANCH
   signals_intelligence: {

@@ -157,6 +157,7 @@ export class CombatResolver {
       const loserOwnsTerritory = loser.empireIds.includes(territory.ownerId) || (loserHasNeutral && !territory.ownerId);
       if (loserOwnsTerritory) {
         territory.ownerId = winner.leaderId === 'neutral' ? null : winner.leaderId;
+        if (territory.missiles) territory.missiles = 0;
 
         const destroyed = rollBuildingDestruction(territory);
 

@@ -3,6 +3,7 @@ import { ADJACENCY, RUSSIA_SEGMENTS, TERRITORY_DATA } from '../data/territories.
 import { RESOURCE_DEFS, RESOURCE_IDS } from '../data/resources.js';
 import { TECH_DEFS, TECH_BRANCHES } from '../data/techs.js';
 import { ResearchEngine } from '../engine/ResearchEngine.js';
+import { IntelEngine } from '../engine/IntelEngine.js';
 
 /**
  * Events shown to ALL empires regardless of involvement.
@@ -18,6 +19,11 @@ const GLOBAL_SIGNIFICANT_EVENTS = new Set([
   'embargo_imposed',
   'coup',
   'region_bonus',
+  'missile_impact',
+  'missile_intercepted',
+  'nuclear_impact',
+  'nuclear_panic',
+  'satellite_launched',
 ]);
 
 /**
@@ -44,6 +50,9 @@ const SELF_RELEVANT_EVENTS = new Set([
   'research_started',
   'research_completed',
   'research_cancelled',
+  'missile_built',
+  'nuke_built',
+  'uav_deployed',
 ]);
 
 export class PromptBuilder {
@@ -119,8 +128,53 @@ ECONOMY & INFRASTRUCTURE:
   - Arms Factory (8 capital): +2 industry (increases recruitment cap by +1)
   - Bunker (12 capital): +0.3 defense bonus for defenders
   - Research Lab (12 capital): enables 1 concurrent research project in this territory
+  - Missile Silo (15 capital, requires Ballistic Missiles tech): stores up to 3 missiles
+  - SAM Battery (14 capital, requires Integrated Defense tech): 60% chance to intercept incoming missiles
+  - Radar Station (10 capital, requires Signals Intelligence tech): extends vision to 2 territories away from this location
+  - Space Command Center (18 capital, requires Space Supremacy tech): enables satellite launch from this territory
 - Regular recruitment costs 3 capital per division and is limited by territory industry.
 - You can recruit MERCENARIES by adding "mercenary": true to a recruit_units action. Mercs cost 6 capital/unit (double), max 3/action. Mercs don't consume manpower but cost 1 capital/unit upkeep (double normal). If you go bankrupt, mercs desert.
+
+CONVENTIONAL MISSILE WARFARE:
+- Requires "Ballistic Missiles" technology (Tier 2 military branch).
+- First, BUILD a Missile Silo in one of your territories (15 capital, requires the tech).
+- Then, use "build_missile" to manufacture conventional missiles: { "type": "build_missile", "territory_id": "string" }
+  Cost: 5 capital + 1 oil per missile. Each silo stores up to 3 warheads total (conventional + nuclear combined).
+- To strike, use "launch_missile": { "type": "launch_missile", "from_territory_id": "string", "target_territory_id": "string" }
+  UNLIMITED RANGE — you can hit ANY territory on the map, not just adjacent ones.
+  You must be AT WAR with the target territory's owner to launch.
+- Conventional missiles: destroy 2-4 army units and may destroy buildings in the target territory.
+- MISSILE DEFENSE: If the target territory has a SAM Battery (building, requires "Integrated Defense" tech), there is a 60% chance the missile is intercepted and destroyed harmlessly. Build SAM Batteries in your key territories!
+- STRATEGY: Missiles are devastating against fortified positions, enemy capitals, and high-value resource territories. Use them to soften up targets before invasion, or to cripple distant enemies you can't reach by land.
+
+NUCLEAR WEAPONS:
+- Requires "Nuclear Arsenal" technology (Tier 3 military, costs 35 capital + 8 uranium, 5 turns). Nuclear weapons are SEPARATE from conventional missiles.
+- Build nuclear warheads: { "type": "build_nuke", "territory_id": "string" }
+  Cost: 12 capital + 2 uranium per warhead. Requires a Missile Silo with available capacity (conventional + nuclear share the 3-slot capacity).
+- Launch a nuclear strike: { "type": "launch_nuke", "from_territory_id": "string", "target_territory_id": "string" }
+  UNLIMITED RANGE. You must be AT WAR with the target territory's owner.
+- DEVASTATION: A nuclear strike that hits creates PERMANENT WASTELAND:
+  - ALL armies in the territory are annihilated
+  - ALL buildings are destroyed, ALL resources zeroed
+  - Territory becomes permanently unusable — removed from the game forever
+  - Ownership is wiped — no one can claim a wasteland
+  - If the territory was a capital, the empire loses their capital
+- CONFIDENCE: You gain +8 confidence. Target loses -25 confidence. ALL other empires lose -10 confidence (global panic).
+- Wastelands reduce the total territory count for win conditions. Nuking 5 territories means domination needs 60% of a SMALLER pool — a double-edged sword.
+- SAM batteries can still intercept nuclear missiles (60% chance).
+- ⚠️ MAD WARNING: If the target empire has Nuclear Arsenal technology AND loaded nuclear warheads, they will AUTOMATICALLY fire a nuclear missile back at YOUR CAPITAL (or your highest-value territory if your capital is already destroyed). This retaliation is immediate and unavoidable. Think VERY carefully before launching a first strike against a nuclear-armed power.
+- You CANNOT nuke a territory that is already wasteland.
+
+INTELLIGENCE & SURVEILLANCE:
+- Radar Station (building, requires "Signals Intelligence" Tier 1 tech): extends your vision to 2 territories away from the radar location. Territories in radar range appear in your intelligence report.
+- UAV Recon (action, requires "Aerial Reconnaissance" Tier 2 tech): { "type": "uav_recon", "target_territory_id": "string" }
+  Cost: 4 capital. Reveals detailed intel on ANY territory on the map for 2 turns (exact army sizes, buildings, resources).
+  You can run multiple UAV missions simultaneously. Use this to scout before invasions or monitor rivals.
+- Space Command Center (building, requires "Space Supremacy" Tier 3 tech): enables satellite launches.
+- Launch Satellite (action, requires Space Command): { "type": "launch_satellite", "territory_id": "string" }
+  Cost: 10 capital + 3 rare_earths. Permanently reveals ALL territories in that region. One satellite per Space Command Center.
+  This is the ultimate intelligence advantage — permanent region-wide visibility.
+- STRATEGY: Intelligence wins wars. Radar gives you early warning of nearby threats. UAV recon lets you scout key targets before committing forces. Satellites give you god-like awareness of an entire region. Invest in the All-Seeing Eye tech branch to unlock these capabilities.
 
 RARE RESOURCES:
 - Some territories contain rare resources: Oil, Uranium, Rare Earths, or Titanium.
@@ -136,7 +190,7 @@ TECHNOLOGY:
 - If your lab territory is captured, the research is cancelled (no refund).
 - If the lab territory has a matching rare resource, research completes 1 turn faster.
 - Higher-tier techs require completing the previous tier first.
-- Technologies unlock powerful new buildings and actions in future phases.
+- Technologies unlock powerful new buildings and actions (e.g., Ballistic Missiles unlocks Missile Silo + missile actions; Integrated Defense unlocks SAM Battery).
 - Research action: { "type": "research", "tech_id": "mechanized_infantry" }
   Optionally specify "lab_territory_id" — if omitted, an available lab is auto-selected.
 
@@ -157,7 +211,7 @@ RESPONSE SCHEMA:
     // Array of 1-5 action objects. Each action has a "type" and type-specific fields:
     // { "type": "move_army", "army_id": "string", "to": "territory_id" }
     // { "type": "recruit_units", "territory_id": "string", "amount": number, "mercenary": true (optional — costs 6c/unit, max 3, no manpower needed) }
-    // { "type": "build", "territory_id": "string", "building": "housing|trade_office|factory|bunker|research_lab" }
+    // { "type": "build", "territory_id": "string", "building": "housing|trade_office|factory|bunker|research_lab|missile_silo|sam_battery|radar_station|space_command" }
     // { "type": "research", "tech_id": "string", "lab_territory_id": "string (optional)" }
     // { "type": "declare_war", "target_empire_id": "string" }
     // { "type": "propose_peace", "target_empire_id": "string" }
@@ -166,6 +220,12 @@ RESPONSE SCHEMA:
     // { "type": "break_alliance", "target_empire_id": "string" }
     // { "type": "impose_embargo", "target_empire_id": "string" }
     // { "type": "lift_embargo", "target_empire_id": "string" }
+    // { "type": "build_missile", "territory_id": "string" }
+    // { "type": "launch_missile", "from_territory_id": "string", "target_territory_id": "string" }
+    // { "type": "build_nuke", "territory_id": "string" }
+    // { "type": "launch_nuke", "from_territory_id": "string", "target_territory_id": "string" }
+    // { "type": "uav_recon", "target_territory_id": "string" }
+    // { "type": "launch_satellite", "territory_id": "string" }
     // { "type": "send_message", "target_empire_id": "string", "message": "string" }
     // { "type": "do_nothing" }
   ]
@@ -259,6 +319,75 @@ RESPONSE SCHEMA:
         }
       }
 
+      prompt += '\n';
+    }
+
+    const hasMissileTech = empire.techs?.completed?.includes('ballistic_missiles');
+    const hasNukeTech = empire.techs?.completed?.includes('nuclear_arsenal');
+    const siloTerritories = territories.filter(t => t.buildings?.missile_silo);
+    const samTerritories = territories.filter(t => t.buildings?.sam_battery);
+
+    if (hasMissileTech || siloTerritories.length > 0 || samTerritories.length > 0) {
+      prompt += `MISSILE ASSETS:\n`;
+      if (siloTerritories.length > 0) {
+        for (const t of siloTerritories) {
+          const conv = t.missiles || 0;
+          const nukes = t.nukes || 0;
+          const total = conv + nukes;
+          let detail = `${conv} conventional`;
+          if (hasNukeTech || nukes > 0) detail += ` / ${nukes} nuclear`;
+          prompt += `  - Silo in ${t.name} (${t.id}): ${detail} (${total}/3 full)`;
+          if (conv > 0 || nukes > 0) prompt += ' — ready to launch';
+          prompt += '\n';
+        }
+      } else if (hasMissileTech) {
+        prompt += `  No missile silos built yet. Build one (15 capital) to start manufacturing missiles.\n`;
+      }
+      if (samTerritories.length > 0) {
+        prompt += `  SAM Defense: ${samTerritories.map(t => t.name).join(', ')} (60% interception)\n`;
+      }
+      if (hasNukeTech) {
+        prompt += `  ☢️ NUCLEAR ARSENAL ACTIVE — use build_nuke / launch_nuke for nuclear warheads (separate from conventional)\n`;
+      }
+      prompt += '\n';
+    }
+
+    const hasIntelTech = empire.techs?.completed?.some(t =>
+      ['signals_intelligence', 'aerial_recon', 'space_supremacy'].includes(t)
+    );
+    const radarTerritories = territories.filter(t => t.buildings?.radar_station);
+    const spaceCommandTerritories = territories.filter(t => t.buildings?.space_command);
+    const activeUav = empire.intel?.uavRecon?.filter(r => r.expiresOnTurn > gameState.meta.turn) || [];
+    const satelliteRegions = empire.intel?.satellites || [];
+
+    if (hasIntelTech || radarTerritories.length > 0 || spaceCommandTerritories.length > 0 || activeUav.length > 0 || satelliteRegions.length > 0) {
+      prompt += `INTEL ASSETS:\n`;
+      if (radarTerritories.length > 0) {
+        prompt += `  Radar Stations: ${radarTerritories.map(t => t.name).join(', ')} (2-hop vision)\n`;
+      } else if (empire.techs?.completed?.includes('signals_intelligence')) {
+        prompt += `  No Radar Stations built yet. Build one (10 capital) for extended vision.\n`;
+      }
+      if (activeUav.length > 0) {
+        for (const uav of activeUav) {
+          const target = gameState.territories[uav.territoryId];
+          const turnsLeft = uav.expiresOnTurn - gameState.meta.turn;
+          prompt += `  UAV Recon: ${target?.name || uav.territoryId} (${turnsLeft} turn${turnsLeft !== 1 ? 's' : ''} remaining)\n`;
+        }
+      } else if (empire.techs?.completed?.includes('aerial_recon')) {
+        prompt += `  UAV Recon available (4 capital per mission, reveals any territory for 2 turns)\n`;
+      }
+      if (satelliteRegions.length > 0) {
+        const labels = satelliteRegions.map(r => r.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+        prompt += `  Satellite Coverage: ${labels.join(', ')} (permanent full visibility)\n`;
+      }
+      if (spaceCommandTerritories.length > 0) {
+        const available = spaceCommandTerritories.filter(t => !t.satelliteLaunched);
+        if (available.length > 0) {
+          prompt += `  Space Command ready: ${available.map(t => t.name).join(', ')} (can launch satellite: 10 capital + 3 rare_earths)\n`;
+        }
+      } else if (empire.techs?.completed?.includes('space_supremacy')) {
+        prompt += `  No Space Command Center built yet. Build one (18 capital) to launch satellites.\n`;
+      }
       prompt += '\n';
     }
 
@@ -376,13 +505,33 @@ RESPONSE SCHEMA:
       prompt += '\n';
     }
 
-    const visible = this._getVisibleNeighbors(gameState, empire.id);
-    if (visible.length > 0) {
+    const intelEngine = new IntelEngine();
+    const visibility = intelEngine.computeVisibility(gameState, empire.id);
+    const basicVisible = new Set([...visibility.adjacent, ...visibility.radar]);
+    const detailedVisible = new Set([...visibility.uav, ...visibility.satellite]);
+
+    if (basicVisible.size > 0) {
       prompt += `NEIGHBORING TERRITORIES YOU CAN SEE:\n`;
-      visible.forEach(v => {
-        const resTag = v.rareResource ? ` [${v.rareResource.toUpperCase()}]` : '';
-        prompt += `  - ${v.name} (${v.id}): owned by ${v.ownerName} | ${v.armyInfo} [${v.terrain}]${resTag}\n`;
-      });
+      for (const tid of basicVisible) {
+        if (detailedVisible.has(tid)) continue;
+        const v = this._buildTerritoryIntel(gameState, tid, false);
+        if (!v) continue;
+        const radarTag = visibility.radar.has(tid) ? ' [RADAR]' : '';
+        prompt += `  - ${v.name} (${v.id}): owned by ${v.ownerName} | ${v.armyInfo} [${v.terrain}]${v.tags}${radarTag}\n`;
+      }
+      prompt += '\n';
+    }
+
+    if (detailedVisible.size > 0) {
+      prompt += `INTELLIGENCE REPORT (detailed recon):\n`;
+      for (const tid of detailedVisible) {
+        const v = this._buildTerritoryIntel(gameState, tid, true);
+        if (!v) continue;
+        const source = visibility.uav.has(tid) ? '[UAV]' : '[SATELLITE]';
+        prompt += `  - ${v.name} (${v.id}) ${source}: owned by ${v.ownerName} | ${v.detailedArmyInfo} [${v.terrain}]${v.tags}`;
+        if (v.buildings) prompt += ` | Buildings: ${v.buildings}`;
+        prompt += '\n';
+      }
       prompt += '\n';
     }
 
@@ -466,15 +615,17 @@ RESPONSE SCHEMA:
     const viewerTerritories = new Set(
       getEmpireTerritories(gameState, viewerId).map(t => t.id)
     );
-    const adjacentToViewer = new Set();
-    for (const tid of viewerTerritories) {
-      (ADJACENCY[tid] || []).forEach(a => adjacentToViewer.add(a));
-    }
+
+    const intelEngine = new IntelEngine();
+    const vis = intelEngine.computeVisibility(gameState, viewerId);
+    const allVisible = new Set([
+      ...viewerTerritories, ...vis.adjacent, ...vis.radar, ...vis.uav, ...vis.satellite,
+    ]);
 
     let visible = 0;
     for (const army of Object.values(gameState.armies)) {
       if (army.empireId !== targetId) continue;
-      if (viewerTerritories.has(army.locationId) || adjacentToViewer.has(army.locationId)) {
+      if (allVisible.has(army.locationId)) {
         visible += army.size;
       }
     }
@@ -555,8 +706,60 @@ RESPONSE FORMAT:
         ownerName: owner ? owner.name : 'Neutral',
         armyInfo,
         rareResource: terrData?.rareResource || null,
+        hasSilo: !!t.buildings?.missile_silo,
+        hasSAM: !!t.buildings?.sam_battery,
+        missileCount: t.missiles || 0,
       };
     }).filter(Boolean);
+  }
+
+  _buildTerritoryIntel(gameState, tid, detailed) {
+    const t = gameState.territories[tid];
+    if (!t) return null;
+    const owner = t.ownerId ? gameState.empires[t.ownerId] : null;
+    const armies = Object.values(gameState.armies).filter(a => a.locationId === tid);
+    const terrData = TERRITORY_DATA[tid];
+
+    const resTag = terrData?.rareResource ? ` [${terrData.rareResource.toUpperCase()}]` : '';
+    const siloTag = t.buildings?.missile_silo ? ` [SILO${(t.missiles || 0) > 0 ? `:${t.missiles}` : ''}]` : '';
+    const nukeTag = (t.nukes || 0) > 0 ? ` [NUKE:${t.nukes}]` : '';
+    const samTag = t.buildings?.sam_battery ? ' [SAM]' : '';
+    const radarTag = t.buildings?.radar_station ? ' [RADAR]' : '';
+    const spaceTag = t.buildings?.space_command ? ' [SPACE CMD]' : '';
+    const wastelandTag = t.wasteland ? ' [WASTELAND]' : '';
+
+    const armyInfo = armies.length > 0 ? `armies present (${armies.length} groups)` : 'no armies';
+
+    let detailedArmyInfo = armyInfo;
+    if (detailed && armies.length > 0) {
+      const totalUnits = armies.reduce((s, a) => s + a.size, 0);
+      const parts = armies.map(a => {
+        const empName = a.empireId === 'neutral' ? 'neutral' : (gameState.empires[a.empireId]?.name || a.empireId);
+        return `${a.size} units (${empName})`;
+      });
+      detailedArmyInfo = `${totalUnits} total units: ${parts.join(', ')}`;
+    } else if (detailed) {
+      detailedArmyInfo = 'no armies';
+    }
+
+    let buildings = null;
+    if (detailed) {
+      const bNames = Object.keys(t.buildings || {}).filter(b => t.buildings[b]);
+      if (bNames.length > 0) {
+        buildings = bNames.map(b => b.charAt(0).toUpperCase() + b.slice(1).replace(/_/g, ' ')).join(', ');
+      }
+    }
+
+    return {
+      id: tid,
+      name: t.name,
+      terrain: t.terrain,
+      ownerName: owner ? owner.name : 'Neutral',
+      armyInfo,
+      detailedArmyInfo,
+      buildings,
+      tags: `${resTag}${siloTag}${nukeTag}${samTag}${radarTag}${spaceTag}${wastelandTag}`,
+    };
   }
 
   _getConfidenceMood(confidence) {

@@ -70,4 +70,8 @@ export class MapController {
   animateMovements(movements, gameState) {
     this.armyLayer.animateMovements(movements, gameState);
   }
+
+  showMissileArcs(missileFlights, state) {
+    this.overlayLayer.showMissileArcs(missileFlights, state);
+  }
 }

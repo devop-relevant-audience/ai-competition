@@ -274,7 +274,11 @@ class App {
       this.gameState.meta.phase = 'resolution';
 
       this.statsTracker.stageActionCounts(this.gameState.pendingActions || {});
-      const { newState, events, movements } = this.engine.resolveTurn(this.gameState);
+      const { newState, events, movements, missileFlights } = this.engine.resolveTurn(this.gameState);
+
+      if (missileFlights && missileFlights.length > 0) {
+        this.mapController.showMissileArcs(missileFlights, newState);
+      }
 
       for (const ev of events) {
         if (ev.type !== 'battle' || !ev.territoryId) continue;

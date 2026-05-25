@@ -17,6 +17,8 @@ export class EconomyEngine {
         const def = BUILDING_DEFS[action.building];
         if (!def) continue;
 
+        if (def.techRequired && !empire.techs?.completed?.includes(def.techRequired)) continue;
+
         if (!territory.buildings) territory.buildings = {};
         if (territory.buildings[action.building]) continue;
 

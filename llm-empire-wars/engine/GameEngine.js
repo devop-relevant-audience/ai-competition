@@ -4,6 +4,8 @@ import { DiplomacyEngine } from './DiplomacyEngine.js';
 import { EconomyEngine } from './EconomyEngine.js';
 import { EventSystem } from './EventSystem.js';
 import { ResearchEngine } from './ResearchEngine.js';
+import { MissileEngine } from './MissileEngine.js';
+import { IntelEngine } from './IntelEngine.js';
 import { ADJACENCY } from '../data/territories.js';
 
 export class GameEngine {
@@ -13,6 +15,8 @@ export class GameEngine {
     this.economy = new EconomyEngine();
     this.events = new EventSystem();
     this.research = new ResearchEngine();
+    this.missile = new MissileEngine();
+    this.intel = new IntelEngine();
   }
 
   resolveTurn(currentState) {
@@ -30,6 +34,12 @@ export class GameEngine {
     const otherActions = {};
 
     const embargoActions = {};
+    const buildMissileActions = {};
+    const launchMissileActions = {};
+    const buildNukeActions = {};
+    const launchNukeActions = {};
+    const uavReconActions = {};
+    const launchSatelliteActions = {};
 
     for (const [empireId, actions] of Object.entries(allActions)) {
       breakActions[empireId] = actions.filter(a => a.type === 'break_alliance');
@@ -38,6 +48,12 @@ export class GameEngine {
       buildActions[empireId] = actions.filter(a => a.type === 'build');
       recruitActions[empireId] = actions.filter(a => a.type === 'recruit_units');
       researchActions[empireId] = actions.filter(a => a.type === 'research');
+      buildMissileActions[empireId] = actions.filter(a => a.type === 'build_missile');
+      launchMissileActions[empireId] = actions.filter(a => a.type === 'launch_missile');
+      buildNukeActions[empireId] = actions.filter(a => a.type === 'build_nuke');
+      launchNukeActions[empireId] = actions.filter(a => a.type === 'launch_nuke');
+      uavReconActions[empireId] = actions.filter(a => a.type === 'uav_recon');
+      launchSatelliteActions[empireId] = actions.filter(a => a.type === 'launch_satellite');
       moveActions[empireId] = actions.filter(a => a.type === 'move_army');
       otherActions[empireId] = actions.filter(a =>
         ['propose_trade', 'propose_alliance', 'propose_peace', 'send_message'].includes(a.type)
@@ -50,7 +66,20 @@ export class GameEngine {
 
     allEvents.push(...this.economy.processBuilding(state, buildActions));
     allEvents.push(...this.economy.processRecruitment(state, recruitActions));
+    allEvents.push(...this.missile.processBuildMissile(state, buildMissileActions));
+    allEvents.push(...this.missile.processBuildNuke(state, buildNukeActions));
     allEvents.push(...this.research.processResearchActions(state, researchActions));
+
+    allEvents.push(...this.intel.processUavRecon(state, uavReconActions));
+    allEvents.push(...this.intel.processLaunchSatellite(state, launchSatelliteActions));
+
+    const missileResult = this.missile.processLaunchMissile(state, launchMissileActions);
+    allEvents.push(...missileResult.events);
+    const missileFlights = missileResult.missileFlights;
+
+    const nukeResult = this.missile.processLaunchNuke(state, launchNukeActions);
+    allEvents.push(...nukeResult.events);
+    missileFlights.push(...nukeResult.missileFlights);
 
     for (const [empireId, actions] of Object.entries(moveActions)) {
       for (const action of actions) {
@@ -67,6 +96,7 @@ export class GameEngine {
 
     allEvents.push(...this.research.updateResearch(state));
     this.research.updateResourceIncome(state);
+    this.intel.expireIntel(state);
     allEvents.push(...this.economy.updateEconomy(state));
 
     const worldEvents = this.events.rollEvents(state);
@@ -102,7 +132,7 @@ export class GameEngine {
     state.meta.phase = 'awaiting_advance';
     state.pendingActions = {};
 
-    return { newState: state, events: allEvents, movements };
+    return { newState: state, events: allEvents, movements, missileFlights };
   }
 
   _processMovement(state, empireId, action) {
@@ -124,6 +154,23 @@ export class GameEngine {
       return { success: false };
     }
 
+    const toTerritory = state.territories[to];
+    if (toTerritory.wasteland) {
+      army.locationId = to;
+      army.movesRemaining -= 1;
+      const empire = state.empires[empireId];
+      return {
+        success: true,
+        movement: { armyId: army.id, empireId, from, to },
+        event: {
+          turn: state.meta.turn,
+          type: 'army_moved',
+          description: `${empire.name} moved an army through the wasteland of ${toTerritory.name}`,
+          involvedEmpires: [empireId],
+        },
+      };
+    }
+
     const toOwner = state.territories[to]?.ownerId;
     if (toOwner && toOwner !== empireId) {
       const rel = this._getRelationBetweenEmpires(state, empireId, toOwner);
@@ -139,7 +186,6 @@ export class GameEngine {
     army.movesRemaining -= 1;
 
     const empire = state.empires[empireId];
-    const toTerritory = state.territories[to];
     const toName = toTerritory ? toTerritory.name : to;
 
     const neutralGarrison = Object.values(state.armies).find(
@@ -148,6 +194,7 @@ export class GameEngine {
 
     if (toTerritory && !toTerritory.ownerId && !neutralGarrison) {
       toTerritory.ownerId = empireId;
+      if (toTerritory.missiles) toTerritory.missiles = 0;
       return {
         success: true,
         movement: { armyId: army.id, empireId, from, to },
@@ -167,6 +214,7 @@ export class GameEngine {
       if (!hasDefenders) {
         const previousOwner = state.empires[toOwner];
         toTerritory.ownerId = empireId;
+        if (toTerritory.missiles) toTerritory.missiles = 0;
         const destroyed = rollBuildingDestruction(toTerritory);
         let desc = `${empire.name} captured the undefended ${toName} from ${previousOwner?.name || 'unknown'}!`;
         if (destroyed.length > 0) {

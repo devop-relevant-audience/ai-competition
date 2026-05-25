@@ -1,4 +1,4 @@
-import { TERRITORY_CENTROIDS } from '../data/territories.js';
+import { TERRITORY_CENTROIDS, TERRITORY_DATA } from '../data/territories.js';
 import { findTradeRoute, getRelation } from '../engine/GameState.js';
 
 export class OverlayLayer {
@@ -7,7 +7,10 @@ export class OverlayLayer {
     this.warZoneGroup = L.layerGroup().addTo(map);
     this.tradeLineGroup = L.layerGroup().addTo(map);
     this.heatOverlayGroup = L.layerGroup().addTo(map);
+    this.missileArcGroup = L.layerGroup().addTo(map);
+    this.reconOverlayGroup = L.layerGroup().addTo(map);
     this.geojsonFeatures = null;
+    this._missileArcTimer = null;
   }
 
   setGeoJSON(geojson) {
@@ -22,6 +25,7 @@ export class OverlayLayer {
     this._buildWarZones(state);
     this._buildTradeLines(state);
     this._buildHeatOverlays(state);
+    this._buildReconOverlays(state);
   }
 
   // ── War Zone Borders ──────────────────────────────────
@@ -239,6 +243,135 @@ export class OverlayLayer {
       }
     }
     return hot;
+  }
+
+  // ── Recon Overlays (UAV + Satellite) ───────────────
+
+  _buildReconOverlays(state) {
+    this.reconOverlayGroup.clearLayers();
+    if (!this.geojsonFeatures) return;
+
+    for (const empire of Object.values(state.empires)) {
+      if (empire.isEliminated || !empire.intel) continue;
+      const color = empire.color || '#4080c9';
+
+      const uavTids = new Set();
+      for (const entry of (empire.intel.uavRecon || [])) {
+        if (entry.expiresOnTurn > (state.meta?.turn || 0)) {
+          uavTids.add(entry.territoryId);
+        }
+      }
+
+      const satTids = new Set();
+      for (const region of (empire.intel.satellites || [])) {
+        for (const [tid, data] of Object.entries(TERRITORY_DATA)) {
+          if (data.region === region && state.territories[tid]) {
+            satTids.add(tid);
+          }
+        }
+      }
+
+      for (const tid of uavTids) {
+        const feature = this.geojsonFeatures[tid];
+        if (!feature) continue;
+        L.geoJSON(feature, {
+          style: {
+            fillColor: color,
+            fillOpacity: 0.12,
+            color,
+            opacity: 0.5,
+            weight: 1.5,
+            className: 'recon-uav-territory',
+          },
+          interactive: false,
+        }).addTo(this.reconOverlayGroup);
+      }
+
+      for (const tid of satTids) {
+        if (uavTids.has(tid)) continue;
+        const feature = this.geojsonFeatures[tid];
+        if (!feature) continue;
+        L.geoJSON(feature, {
+          style: {
+            fillColor: color,
+            fillOpacity: 0.06,
+            color,
+            opacity: 0.2,
+            weight: 1,
+            className: 'recon-satellite-territory',
+          },
+          interactive: false,
+        }).addTo(this.reconOverlayGroup);
+      }
+    }
+  }
+
+  // ── Missile Flight Arcs ─────────────────────────────
+
+  showMissileArcs(missileFlights, state) {
+    this.missileArcGroup.clearLayers();
+    if (this._missileArcTimer) {
+      clearTimeout(this._missileArcTimer);
+      this._missileArcTimer = null;
+    }
+
+    for (const flight of missileFlights) {
+      const from = TERRITORY_CENTROIDS[flight.from];
+      const to = TERRITORY_CENTROIDS[flight.to];
+      if (!from || !to) continue;
+
+      const arc = this._computeMissileArc(from, to, 24);
+      const empireColor = state.empires[flight.empireId]?.color || '#ff6633';
+      const isNuclear = flight.isNuclear;
+
+      L.polyline(arc, {
+        color: isNuclear ? '#ffcc00' : empireColor,
+        weight: isNuclear ? 3 : 2,
+        opacity: 0.9,
+        dashArray: '1000',
+        className: isNuclear ? 'missile-arc-nuclear' : 'missile-arc',
+        interactive: false,
+      }).addTo(this.missileArcGroup);
+
+      if (!flight.intercepted) {
+        const impactClass = isNuclear ? 'missile-impact-nuclear' : 'missile-impact';
+        L.circleMarker(to, {
+          radius: isNuclear ? 14 : 8,
+          fillColor: isNuclear ? '#ffcc00' : '#ff6633',
+          fillOpacity: 0.7,
+          color: isNuclear ? '#ffcc00' : '#ff6633',
+          weight: 2,
+          opacity: 0.9,
+          className: impactClass,
+          interactive: false,
+        }).addTo(this.missileArcGroup);
+      }
+    }
+
+    this._missileArcTimer = setTimeout(() => {
+      this.missileArcGroup.clearLayers();
+      this._missileArcTimer = null;
+    }, 4500);
+  }
+
+  _computeMissileArc(from, to, segments) {
+    const midLat = (from[0] + to[0]) / 2;
+    const midLng = (from[1] + to[1]) / 2;
+    const dx = to[1] - from[1];
+    const dy = to[0] - from[0];
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const height = Math.max(dist * 0.4, 2);
+    const control = [midLat + height, midLng];
+
+    const points = [];
+    for (let t = 0; t <= 1; t += 1 / segments) {
+      const u = 1 - t;
+      const lat = u * u * from[0] + 2 * u * t * control[0] + t * t * to[0];
+      const lng = u * u * from[1] + 2 * u * t * control[1] + t * t * to[1];
+      points.push([lat, lng]);
+    }
+    points.push(to);
+    return points;
   }
 
   // ── Floating Combat Text ──────────────────────────────

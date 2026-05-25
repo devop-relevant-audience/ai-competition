@@ -20,8 +20,11 @@ export async function callAI(systemPrompt, userPrompt, options = {}) {
       { role: 'user', content: userPrompt },
     ],
     response_format: { type: 'json_object' },
+    // thinking: { type: 'enabled' },
+    // reasoning_effort: 'high',
     stream: false,
   };
+  
   if (options.maxTokens) body.max_tokens = options.maxTokens;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {

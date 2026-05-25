@@ -204,6 +204,10 @@ export const BUILDING_DEFS = {
   factory:       { cost: 8,  label: 'Arms Factory',    effect: 'industry +2 (recruit cap +1)' },
   bunker:        { cost: 12, label: 'Bunker',          effect: 'defense +0.3' },
   research_lab:  { cost: 12, label: 'Research Lab',    effect: 'enables 1 concurrent research project' },
+  missile_silo:  { cost: 15, label: 'Missile Silo',          effect: 'stores up to 3 missiles for launch',  techRequired: 'ballistic_missiles' },
+  sam_battery:   { cost: 14, label: 'SAM Battery',           effect: '60% missile interception',             techRequired: 'integrated_defense' },
+  radar_station: { cost: 10, label: 'Radar Station',         effect: '2-hop vision around territory',        techRequired: 'signals_intelligence' },
+  space_command: { cost: 18, label: 'Space Command Center',  effect: 'enables satellite launch',             techRequired: 'space_supremacy' },
 };
 
 export const TERRAIN_MODIFIERS = {
@@ -213,6 +217,7 @@ export const TERRAIN_MODIFIERS = {
   coast:     { defense: 1.0 },
   desert:    { defense: 0.9 },
   steppe:    { defense: 0.9 },
+  wasteland: { defense: 0.5 },
   capital:   { defense: 1.3 },
 };
 
