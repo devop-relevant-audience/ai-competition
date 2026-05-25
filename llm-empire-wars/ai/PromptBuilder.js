@@ -30,6 +30,13 @@ const GLOBAL_SIGNIFICANT_EVENTS = new Set([
   'insurgency_detected',
   'hack_detected',
   'sabotage_detected',
+  'market_crash',
+  'market_boom',
+  'monopoly_warning',
+  'resource_shortage',
+  'bubble_pop',
+  'market_ban_imposed',
+  'resource_discovery',
 ]);
 
 /**
@@ -66,6 +73,11 @@ const SELF_RELEVANT_EVENTS = new Set([
   'bloc_joined',
   'bloc_left',
   'bloc_expelled',
+  'market_buy',
+  'market_sell',
+  'market_dump',
+  'market_corner',
+  'market_action_blocked',
 ]);
 
 export class PromptBuilder {
@@ -231,7 +243,7 @@ RARE RESOURCES:
 
 TECHNOLOGY:
 - Build a Research Lab, then use the "research" action to begin researching technologies.
-- Tech tree has 3 branches (Iron Fist / All-Seeing Eye / Dark Hand), each with 3 tiers.
+- Tech tree has 4 branches (Iron Fist / All-Seeing Eye / Dark Hand / Invisible Hand), each with 3 tiers.
 - Each tech costs capital + specific resources and takes multiple turns to complete.
 - You can only research one tech per Research Lab at a time.
 - If your lab territory is captured, the research is cancelled (no refund).
@@ -250,6 +262,24 @@ STRATEGIC PRIORITIES:
 
 COMMUNICATION STYLE:
 - You are encouraged to send messages to other states regularly (every 3-5 turns or when needed). Use them to threaten, warn, negotiate, bluff, or coordinate. Messages show your personality and keep things interesting. Keep messages short (1-2 sentences), in-character, and natural. Write like a real person — no medieval roleplay, no theatrical monologues.
+
+COMMODITIES MARKET (requires "Market Access" tech — Invisible Hand branch):
+- A global exchange where empires trade Oil, Uranium, Rare Earths, and Titanium for Capital at dynamic prices.
+- Prices fluctuate based on supply (territory production) and demand (buying/selling activity). Prices are clamped between 1-20 capital.
+- Tier 1 (Market Access): enables buy/sell.
+- Tier 2 (Futures Trading): enables limit orders (auto-execute when price hits threshold) and reveals other empires' trades.
+- Tier 3 (Market Manipulation): enables dump (sell at discount, crash price), corner (buy at premium, spike price), and market_ban (block a rival at war/embargoed from the exchange for 2 turns).
+- SPECULATIVE BUBBLES: If a resource is heavily bought for 3+ consecutive turns, a speculative bubble forms. Bubbles have a 30% chance of popping each turn, crashing the price by 50%. Watch for [BUBBLE WARNING] tags.
+- MARKET BANS: A banned empire cannot buy, sell, dump, or corner for 2 turns. Requires war or embargo with target.
+- STRATEGY: Control resource territories to drive supply. Buy cheap resources before researching expensive techs. Dump resources your rivals need to crash prices. Corner scarce resources to deny them to enemies. Ban rivals from the exchange during wartime to cripple their economy.
+- Action schemas:
+  { "type": "market_buy", "resource": "oil", "amount": 2 }
+  { "type": "market_sell", "resource": "oil", "amount": 1 }
+  { "type": "market_limit_buy", "resource": "oil", "amount": 1, "max_price": 5 }
+  { "type": "market_limit_sell", "resource": "oil", "amount": 1, "min_price": 7 }
+  { "type": "market_dump", "resource": "uranium", "amount": 3 }
+  { "type": "market_corner", "resource": "rare_earths", "amount": 3 }
+  { "type": "market_ban", "target_empire_id": "string" }
 
 RESPONSE SCHEMA:
 {
@@ -280,6 +310,13 @@ RESPONSE SCHEMA:
     // { "type": "invite_bloc", "target_empire_id": "string" }
     // { "type": "leave_bloc" }
     // { "type": "bloc_embargo", "target_empire_id": "string" }
+    // { "type": "market_buy", "resource": "string", "amount": number }
+    // { "type": "market_sell", "resource": "string", "amount": number }
+    // { "type": "market_limit_buy", "resource": "string", "amount": number, "max_price": number }
+    // { "type": "market_limit_sell", "resource": "string", "amount": number, "min_price": number }
+    // { "type": "market_dump", "resource": "string", "amount": number }
+    // { "type": "market_corner", "resource": "string", "amount": number }
+    // { "type": "market_ban", "target_empire_id": "string" }
     // { "type": "send_message", "target_empire_id": "string", "message": "string" }
     // { "type": "do_nothing" }
   ]
@@ -460,6 +497,48 @@ RESPONSE SCHEMA:
         prompt += `  Sabotage available (8 capital, destroys 1 random building permanently)\n`;
       } else if (hasCyberWarfare) {
         prompt += `  No Cyber Warfare Centers built yet. Build one (14 capital) to enable hack_grid and sabotage.\n`;
+      }
+      prompt += '\n';
+    }
+
+    const hasMarketAccess = empire.techs?.completed?.includes('market_access');
+    if (hasMarketAccess && gameState.market) {
+      prompt += `GLOBAL COMMODITIES MARKET:\n`;
+      for (const rid of RESOURCE_IDS) {
+        const pd = gameState.market.prices[rid];
+        const current = pd.current;
+        const hist = pd.history;
+        const prev = hist.length >= 2 ? hist[hist.length - 2].price : current;
+        const change = prev > 0 ? Math.round(((current - prev) / prev) * 100) : 0;
+        const changeStr = change === 0 ? '(stable)' : change > 0 ? `(was ${prev} last turn, +${change}%)` : `(was ${prev} last turn, ${change}%)`;
+        const stock = empire.resources[rid]?.stockpile || 0;
+        const bubbleTag = gameState.market.bubbles[rid] >= 3 ? ' [BUBBLE WARNING]' : '';
+        prompt += `  ${RESOURCE_DEFS[rid].label}: ${current} capital/unit ${changeStr} | Your stockpile: ${stock}${bubbleTag}\n`;
+      }
+
+      const myBan = gameState.market.bans.find(b => b.targetEmpireId === empire.id && b.expiresOnTurn > gameState.meta.turn);
+      if (myBan) {
+        const bannerName = gameState.empires[myBan.imposedByEmpireId]?.name || myBan.imposedByEmpireId;
+        prompt += `  [BANNED from exchange until turn ${myBan.expiresOnTurn} by ${bannerName}]\n`;
+      }
+
+      if (empire.techs?.completed?.includes('futures_trading')) {
+        const myOrders = gameState.market.pendingOrders.filter(o => o.empireId === empire.id);
+        if (myOrders.length > 0) {
+          prompt += `  Pending limit orders: ${myOrders.map(o => `${o.orderType === 'limit_buy' ? 'Buy' : 'Sell'} ${o.amount} ${o.resource} at ${o.orderType === 'limit_buy' ? 'max' : 'min'} ${o.triggerPrice}c`).join(', ')}\n`;
+        }
+        const otherActivity = (gameState.market.turnActivity || []).filter(a => a.empireId !== empire.id);
+        if (otherActivity.length > 0) {
+          const summary = otherActivity.slice(0, 4).map(a => {
+            const name = gameState.empires[a.empireId]?.name || a.empireId;
+            return `${name} ${a.type === 'buy' ? 'bought' : 'sold'} ${a.amount} ${a.resource}`;
+          }).join(', ');
+          prompt += `  Other empires trading: ${summary}\n`;
+        }
+      }
+
+      if (empire.techs?.completed?.includes('market_manipulation')) {
+        prompt += `  Market Ban available: block a rival (at war or embargoed) from the exchange for 2 turns\n`;
       }
       prompt += '\n';
     }

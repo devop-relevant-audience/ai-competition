@@ -92,10 +92,42 @@ export const TECH_DEFS = {
     researchTurns: 4,
     effect: { unlocks: ['sam_battery'] },
   },
+  // ECONOMY BRANCH
+  market_access: {
+    branch: 'economy',
+    tier: 1,
+    label: 'Market Access',
+    description: 'Opens access to the Global Commodities Exchange for buying and selling resources',
+    prerequisite: null,
+    cost: { capital: 6 },
+    researchTurns: 2,
+    effect: { unlocks: ['market_buy', 'market_sell'] },
+  },
+  futures_trading: {
+    branch: 'economy',
+    tier: 2,
+    label: 'Futures Trading',
+    description: 'Enables limit orders and reveals other empires\' pending trades',
+    prerequisite: 'market_access',
+    cost: { capital: 12, rare_earths: 2 },
+    researchTurns: 3,
+    effect: { unlocks: ['market_limit_buy', 'market_limit_sell'] },
+  },
+  market_manipulation: {
+    branch: 'economy',
+    tier: 3,
+    label: 'Market Manipulation',
+    description: 'Enables dump, corner, and market_ban actions to manipulate prices or block rivals',
+    prerequisite: 'futures_trading',
+    cost: { capital: 20, rare_earths: 3 },
+    researchTurns: 4,
+    effect: { unlocks: ['market_dump', 'market_corner', 'market_ban'] },
+  },
 };
 
 export const TECH_BRANCHES = {
   military:     { label: 'Iron Fist',      color: '#c94040' },
   intelligence: { label: 'All-Seeing Eye', color: '#4080c9' },
   shadow:       { label: 'Dark Hand',      color: '#8040c9' },
+  economy:      { label: 'Invisible Hand', color: '#c9a040' },
 };

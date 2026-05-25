@@ -1,4 +1,6 @@
 import { adjustConfidence } from './GameState.js';
+import { RESOURCE_IDS } from '../data/resources.js';
+import { TERRITORY_DATA } from '../data/territories.js';
 
 const EVENT_TEMPLATES = [
   {
@@ -71,6 +73,21 @@ const EVENT_TEMPLATES = [
     duration: 2,
     weight: (territory) => territory.terrain === 'plains' ? 2 : 0.5,
     targetType: 'owned_territory',
+  },
+  {
+    type: 'resource_discovery',
+    name: 'Resource Discovery',
+    description: 'Geological surveys reveal a new resource deposit in {territory}!',
+    instantEffect: (state, territoryId) => {
+      const resource = RESOURCE_IDS[Math.floor(Math.random() * RESOURCE_IDS.length)];
+      const terrData = TERRITORY_DATA[territoryId];
+      if (terrData) {
+        terrData.rareResource = resource;
+      }
+    },
+    duration: 0,
+    weight: () => 0.4,
+    targetType: 'neutral_no_resource',
   },
 ];
 
@@ -159,6 +176,11 @@ export class EventSystem {
       case 'owned_territory': pool = owned; break;
       case 'territory_with_army': pool = withArmies.length > 0 ? withArmies : owned; break;
       case 'global': return null;
+      case 'neutral_no_resource':
+        pool = Object.values(state.territories).filter(t =>
+          !t.ownerId && !TERRITORY_DATA[t.id]?.rareResource && !t.wasteland
+        );
+        break;
       default: pool = owned;
     }
 

@@ -2,6 +2,7 @@ import { ADJACENCY } from '../data/territories.js';
 
 import { BUILDING_DEFS } from '../data/territories.js';
 import { TECH_DEFS } from '../data/techs.js';
+import { RESOURCE_IDS } from '../data/resources.js';
 
 const ACTION_SCHEMA = {
   move_army:         { required: ['army_id', 'to'] },
@@ -29,6 +30,13 @@ const ACTION_SCHEMA = {
   invite_bloc:       { required: ['target_empire_id'] },
   leave_bloc:        { required: [] },
   bloc_embargo:      { required: ['target_empire_id'] },
+  market_buy:        { required: ['resource', 'amount'] },
+  market_sell:       { required: ['resource', 'amount'] },
+  market_limit_buy:  { required: ['resource', 'amount', 'max_price'] },
+  market_limit_sell: { required: ['resource', 'amount', 'min_price'] },
+  market_dump:       { required: ['resource', 'amount'] },
+  market_corner:     { required: ['resource', 'amount'] },
+  market_ban:        { required: ['target_empire_id'] },
   do_nothing:        { required: [] },
 };
 
@@ -181,6 +189,17 @@ export class ResponseParser {
         return action;
       case 'bloc_embargo':
         return this._coerceBlocEmbargo(action, empireId, gameState);
+      case 'market_buy':
+      case 'market_sell':
+      case 'market_dump':
+      case 'market_corner':
+        return this._coerceMarketTrade(action, empireId, gameState);
+      case 'market_limit_buy':
+        return this._coerceMarketLimitBuy(action, empireId, gameState);
+      case 'market_limit_sell':
+        return this._coerceMarketLimitSell(action, empireId, gameState);
+      case 'market_ban':
+        return this._coerceMarketBan(action, empireId, gameState);
       default:
         return action;
     }
@@ -493,6 +512,57 @@ export class ResponseParser {
       b => b.founderId === empireId && b.members.includes(empireId)
     );
     if (!myBloc) return null;
+
+    return { ...action, target_empire_id: targetId };
+  }
+
+  _coerceMarketTrade(action, empireId, gameState) {
+    const empire = gameState.empires[empireId];
+    const requiredTech = (action.type === 'market_dump' || action.type === 'market_corner')
+      ? 'market_manipulation' : 'market_access';
+    if (!empire?.techs?.completed?.includes(requiredTech)) return null;
+
+    const resource = String(action.resource || '').toLowerCase();
+    if (!RESOURCE_IDS.includes(resource)) return null;
+
+    const amount = Math.max(1, Math.min(5, parseInt(action.amount, 10) || 1));
+    return { ...action, resource, amount };
+  }
+
+  _coerceMarketLimitBuy(action, empireId, gameState) {
+    const empire = gameState.empires[empireId];
+    if (!empire?.techs?.completed?.includes('futures_trading')) return null;
+
+    const resource = String(action.resource || '').toLowerCase();
+    if (!RESOURCE_IDS.includes(resource)) return null;
+
+    const amount = Math.max(1, Math.min(5, parseInt(action.amount, 10) || 1));
+    const maxPrice = parseFloat(action.max_price) || 5;
+    return { ...action, resource, amount, max_price: maxPrice };
+  }
+
+  _coerceMarketLimitSell(action, empireId, gameState) {
+    const empire = gameState.empires[empireId];
+    if (!empire?.techs?.completed?.includes('futures_trading')) return null;
+
+    const resource = String(action.resource || '').toLowerCase();
+    if (!RESOURCE_IDS.includes(resource)) return null;
+
+    const amount = Math.max(1, Math.min(5, parseInt(action.amount, 10) || 1));
+    const minPrice = parseFloat(action.min_price) || 5;
+    return { ...action, resource, amount, min_price: minPrice };
+  }
+
+  _coerceMarketBan(action, empireId, gameState) {
+    const empire = gameState.empires[empireId];
+    if (!empire?.techs?.completed?.includes('market_manipulation')) return null;
+
+    const targetId = this._resolveEmpireId(action.target_empire_id, empireId, gameState);
+    if (!targetId) return null;
+
+    const key = empireId < targetId ? `${empireId}__${targetId}` : `${targetId}__${empireId}`;
+    const rel = gameState.relations[key];
+    if (!rel || (rel.status !== 'war' && !rel.embargo)) return null;
 
     return { ...action, target_empire_id: targetId };
   }

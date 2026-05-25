@@ -15,6 +15,9 @@ export class TurnControls {
     this.onExport = saveCallbacks.onExport || (() => {});
     this.onImport = saveCallbacks.onImport || (() => {});
     this.onEditDiplomacy = extraCallbacks.onEditDiplomacy || (() => {});
+    this.onOpenAnalytics = extraCallbacks.onOpenAnalytics || (() => {});
+    this.onOpenBalance = extraCallbacks.onOpenBalance || (() => {});
+    this.onOpenMarket = extraCallbacks.onOpenMarket || (() => {});
     this.onHistorySeek = extraCallbacks.onHistorySeek || (() => {});
     this.onReturnToLive = extraCallbacks.onReturnToLive || (() => {});
     this.autoPlay = false;
@@ -49,6 +52,9 @@ export class TurnControls {
           <input type="file" id="file-import" accept=".json" hidden />
         </label>
         <button class="ctrl-btn ctrl-btn-save ctrl-btn-diplo" id="btn-edit-diplomacy" title="Edit Empire Relations">Diplomacy</button>
+        <button class="ctrl-btn ctrl-btn-save ctrl-btn-diplo" id="btn-analytics" title="Empire Analytics">Analytics</button>
+        <button class="ctrl-btn ctrl-btn-save ctrl-btn-diplo" id="btn-balance" title="Balance Dashboard">Balance</button>
+        <button class="ctrl-btn ctrl-btn-save ctrl-btn-market" id="btn-market" title="Commodities Exchange">Market</button>
       </div>
       <div class="history-slider hidden" id="history-slider-wrap">
         <div class="history-slider-row">
@@ -93,6 +99,9 @@ export class TurnControls {
       }
     });
     this.container.querySelector('#btn-edit-diplomacy').addEventListener('click', () => this.onEditDiplomacy());
+    this.container.querySelector('#btn-analytics').addEventListener('click', () => this.onOpenAnalytics());
+    this.container.querySelector('#btn-balance').addEventListener('click', () => this.onOpenBalance());
+    this.container.querySelector('#btn-market').addEventListener('click', () => this.onOpenMarket());
 
     this.historySlider = this.container.querySelector('#history-slider');
     this.historySliderWrap = this.container.querySelector('#history-slider-wrap');

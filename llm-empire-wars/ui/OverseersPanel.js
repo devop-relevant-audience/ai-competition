@@ -16,12 +16,17 @@ export class OverseersPanel {
     this.eventLog = new EventLog(document.getElementById('event-log'));
     this.analyticsPanel = new AnalyticsPanel(document.getElementById('analytics-modal'));
     this.techTreePanel = new TechTreePanel(document.getElementById('tech-tree'));
+    const extraCb = callbacks.extraCallbacks || {};
+    extraCb.onOpenAnalytics = () => this.analyticsPanel.open();
+    extraCb.onOpenBalance = () => this._onOpenBalance && this._onOpenBalance();
+    extraCb.onOpenMarket = () => this._onOpenMarket && this._onOpenMarket();
+
     this.turnControls = new TurnControls(
       document.getElementById('turn-controls'),
       callbacks.onAdvance,
       callbacks.onToggleAuto,
       callbacks.saveCallbacks || {},
-      callbacks.extraCallbacks || {},
+      extraCb,
     );
 
     this._initTabs();
@@ -30,8 +35,7 @@ export class OverseersPanel {
   }
 
   _initTabs() {
-    const tabs = document.querySelectorAll('.panel-tab:not(.panel-tab-action)');
-    const actionBtns = document.querySelectorAll('.panel-tab-action');
+    const tabs = document.querySelectorAll('.panel-tab');
     const contents = document.querySelectorAll('.panel-tab-content');
 
     tabs.forEach(tab => {
@@ -39,23 +43,11 @@ export class OverseersPanel {
         const target = tab.dataset.tab;
 
         tabs.forEach(t => t.classList.remove('active'));
-        actionBtns.forEach(b => b.classList.remove('active'));
         contents.forEach(c => c.classList.remove('active'));
 
         tab.classList.add('active');
         const content = document.querySelector(`[data-tab-content="${target}"]`);
         if (content) content.classList.add('active');
-      });
-    });
-
-    actionBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const action = btn.dataset.action;
-        if (action === 'analytics') {
-          this.analyticsPanel.open();
-        } else if (action === 'balance' && this._onOpenBalance) {
-          this._onOpenBalance();
-        }
       });
     });
   }
@@ -131,8 +123,16 @@ export class OverseersPanel {
     this.analyticsPanel.setTracker(tracker);
   }
 
+  onOpenAnalytics(callback) {
+    this._onOpenAnalytics = callback;
+  }
+
   onOpenBalance(callback) {
     this._onOpenBalance = callback;
+  }
+
+  onOpenMarket(callback) {
+    this._onOpenMarket = callback;
   }
 
   updateState(gameState) {

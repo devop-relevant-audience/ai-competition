@@ -8,6 +8,7 @@ import { MissileEngine } from './MissileEngine.js';
 import { IntelEngine } from './IntelEngine.js';
 import { ShadowEngine } from './ShadowEngine.js';
 import { BlocEngine } from './BlocEngine.js';
+import { MarketEngine } from './MarketEngine.js';
 import { ADJACENCY } from '../data/territories.js';
 
 export class GameEngine {
@@ -21,6 +22,7 @@ export class GameEngine {
     this.intel = new IntelEngine();
     this.shadow = new ShadowEngine();
     this.bloc = new BlocEngine();
+    this.market = new MarketEngine();
   }
 
   resolveTurn(currentState) {
@@ -46,6 +48,7 @@ export class GameEngine {
     const launchSatelliteActions = {};
     const shadowActions = {};
     const blocActions = {};
+    const marketActions = {};
 
     for (const [empireId, actions] of Object.entries(allActions)) {
       breakActions[empireId] = actions.filter(a => a.type === 'break_alliance');
@@ -62,6 +65,7 @@ export class GameEngine {
       launchSatelliteActions[empireId] = actions.filter(a => a.type === 'launch_satellite');
       shadowActions[empireId] = actions.filter(a => ['fund_insurgency', 'hack_grid', 'sabotage'].includes(a.type));
       blocActions[empireId] = actions.filter(a => ['form_bloc', 'invite_bloc', 'leave_bloc', 'bloc_embargo'].includes(a.type));
+      marketActions[empireId] = actions.filter(a => a.type.startsWith('market_'));
       moveActions[empireId] = actions.filter(a => a.type === 'move_army');
       otherActions[empireId] = actions.filter(a =>
         ['propose_trade', 'propose_alliance', 'propose_peace', 'send_message'].includes(a.type)
@@ -83,6 +87,10 @@ export class GameEngine {
     allEvents.push(...this.economy.processBuilding(state, buildActions));
     // 6. Recruit
     allEvents.push(...this.economy.processRecruitment(state, recruitActions));
+    // 6.5 Market: expire bans + execute limit orders
+    this.market.processMarketBans(state);
+    const limitOrderEvents = this.market.processLimitOrders(state);
+    if (limitOrderEvents) allEvents.push(...limitOrderEvents);
     // 7. Research
     allEvents.push(...this.research.processResearchActions(state, researchActions));
     // 8. Build missiles/nukes
@@ -116,12 +124,16 @@ export class GameEngine {
     // 13. Combat
     const combatEvents = this.combat.resolve(state);
     allEvents.push(...combatEvents);
+    // 13.5 Market actions
+    allEvents.push(...this.market.processMarketActions(state, marketActions));
     // 14. Research completion + resource income + intel expiry
     allEvents.push(...this.research.updateResearch(state));
     this.research.updateResourceIncome(state);
     this.intel.expireIntel(state);
     // 15. Economy update (respects gridDown events)
     allEvents.push(...this.economy.updateEconomy(state));
+    // 15.5 Market price update + bubble tracking
+    allEvents.push(...this.market.updateMarketPrices(state));
     // 16. World events
     const worldEvents = this.events.rollEvents(state);
     allEvents.push(...worldEvents);
