@@ -5,7 +5,8 @@ import { TERRITORY_DATA } from '../data/territories.js';
 const BASE_PRICES = { oil: 4, uranium: 6, rare_earths: 5, titanium: 5 };
 const MIN_PRICE = 1;
 const MAX_PRICE = 20;
-const VOLATILITY = 1.5;
+const PRICE_IMPACT_PER_UNIT = 0.5;
+const NOISE_RANGE = 0.2;
 const BUBBLE_THRESHOLD = 4;
 const BUBBLE_POP_CHANCE = 0.3;
 
@@ -137,20 +138,19 @@ export class MarketEngine {
       const priceData = state.market.prices[rid];
       const oldPrice = priceData.current;
 
-      const globalProduction = this._countGlobalProduction(state, rid);
-      const baselineProduction = 3;
-      const supplyRatio = globalProduction / baselineProduction;
-
       const vol = this._turnVolume?.[rid] || { bought: 0, sold: 0 };
-      const netDemand = vol.bought - vol.sold;
-      const demandRatio = (netDemand + 2) / 2;
+      const totalVolume = vol.bought + vol.sold;
 
-      const noise = (Math.random() - 0.5);
-      const priceDelta = (demandRatio - supplyRatio) * VOLATILITY + noise;
-      const newPrice = Math.round(Math.max(MIN_PRICE, Math.min(MAX_PRICE, oldPrice + priceDelta)) * 10) / 10;
+      // Pure volume-driven: buys push price up, sells push price down
+      const netBuys = vol.bought - vol.sold;
+      const tradeImpact = netBuys * PRICE_IMPACT_PER_UNIT;
+
+      // Tiny random noise only when there's no trade activity
+      const noise = totalVolume === 0 ? (Math.random() - 0.5) * NOISE_RANGE : 0;
+
+      const newPrice = Math.round(Math.max(MIN_PRICE, Math.min(MAX_PRICE, oldPrice + tradeImpact + noise)) * 10) / 10;
 
       priceData.current = newPrice;
-      const totalVolume = vol.bought + vol.sold;
       priceData.history.push({ turn, price: newPrice, volume: totalVolume });
 
       if (priceData.history.length > 50) {
