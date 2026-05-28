@@ -11,7 +11,6 @@ import { GameOverAnalytics } from './ui/AnalyticsPanel.js';
 import { GameReporter } from './engine/GameReporter.js';
 import { MetaStatsStore } from './engine/MetaStatsStore.js';
 import { BalanceDashboard } from './ui/BalanceDashboard.js';
-import { MarketPanel } from './ui/MarketPanel.js';
 import { EMPIRE_DEFINITIONS } from './data/empires.js';
 import { RESOURCE_DEFS, RESOURCE_IDS } from './data/resources.js';
 import { MAP_PRESETS, DEFAULT_PRESET } from './data/regions.js';
@@ -27,7 +26,6 @@ class App {
     this.gameReporter = new GameReporter();
     this.metaStore = new MetaStatsStore();
     this.balanceDashboard = null;
-    this.marketPanel = null;
     this.mapController = null;
     this.panel = null;
     this.diplomacyEditor = null;
@@ -180,7 +178,6 @@ class App {
     this.mapController.updateState(this.gameState);
     this.panel.updateState(this.gameState);
     this.panel.setPhase('awaiting_advance');
-    this._updateTicker();
   }
 
   async _initGameUI(preset) {
@@ -213,19 +210,11 @@ class App {
       document.getElementById('balance-modal'),
       this.metaStore,
     );
-    this.marketPanel = new MarketPanel(document.getElementById('market-modal'));
-
-    this.panel.onOpenBalance(() => this.balanceDashboard.open());
-    this.panel.onOpenMarket(() => {
-      this.marketPanel.update(this.gameState);
-      this.marketPanel.open();
-    });
 
     this.panel.setStatsTracker(this.statsTracker);
     this.mapController.updateState(this.gameState);
     this.panel.updateState(this.gameState);
     this.panel.setPhase('awaiting_advance');
-    this._updateTicker();
 
     this._initModalClose();
   }
@@ -314,8 +303,6 @@ class App {
       this.mapController.updateState(this.gameState);
       this.panel.updateState(this.gameState);
       this.panel.setPhase('awaiting_advance');
-      this._updateTicker();
-      if (this.marketPanel) this.marketPanel.update(this.gameState);
 
       await this.saveManager.autoSave(this.gameState);
 
@@ -335,39 +322,6 @@ class App {
     }
   }
 
-  _updateTicker() {
-    const ticker = document.getElementById('market-ticker');
-    const track = document.getElementById('ticker-track');
-    if (!ticker || !track || !this.gameState?.market) {
-      if (ticker) ticker.classList.add('hidden');
-      return;
-    }
-
-    ticker.classList.remove('hidden');
-    const market = this.gameState.market;
-    let items = '';
-
-    for (const rid of RESOURCE_IDS) {
-      const pd = market.prices[rid];
-      const current = pd.current;
-      const hist = pd.history;
-      const prev = hist.length >= 2 ? hist[hist.length - 2].price : current;
-      const change = prev > 0 ? ((current - prev) / prev) * 100 : 0;
-      const hasBubble = market.bubbles[rid] >= 3;
-
-      let cssClass = 'ticker-flat';
-      let changeStr = '=';
-      if (change > 0) { cssClass = 'ticker-up'; changeStr = `+${change.toFixed(0)}%`; }
-      else if (change < 0) { cssClass = 'ticker-down'; changeStr = `${change.toFixed(0)}%`; }
-      if (hasBubble) cssClass = 'ticker-bubble';
-
-      const label = RESOURCE_DEFS[rid].label.toUpperCase();
-      items += `<span class="${cssClass}">${label} ${current.toFixed(1)} (${changeStr})${hasBubble ? ' [BUBBLE]' : ''}</span>`;
-    }
-
-    // Duplicate for seamless scroll
-    track.innerHTML = items + items;
-  }
 
   _toggleAuto(auto) {
     if (auto) {

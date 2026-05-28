@@ -89,6 +89,8 @@ export class DiplomacyEngine {
         rel.status = 'neutral';
         rel.embargo = null;
         rel.peaceCooldownUntil = state.meta.turn + 3;
+        if (fromEmpire.warTurns) fromEmpire.warTurns[targetId] = 0;
+        if (toEmpire.warTurns) toEmpire.warTurns[empireId] = 0;
         adjustConfidence(fromEmpire, 2);
         adjustConfidence(toEmpire, 2);
         events.push(this._makeEvent(state, 'peace_declared',

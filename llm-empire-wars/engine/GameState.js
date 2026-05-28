@@ -44,6 +44,7 @@ export function createInitialState(config = {}) {
         uavRecon: [],
         satellites: [],
       },
+      warTurns: {},
     };
   });
 
@@ -151,17 +152,12 @@ export function createInitialState(config = {}) {
     eventLog: [],
     activeEvents: [],
     blocs: {},
-    market: {
-      prices: {
-        oil:         { current: 4, history: [{ turn: 0, price: 4, volume: 0 }] },
-        uranium:     { current: 6, history: [{ turn: 0, price: 6, volume: 0 }] },
-        rare_earths: { current: 5, history: [{ turn: 0, price: 5, volume: 0 }] },
-        titanium:    { current: 5, history: [{ turn: 0, price: 5, volume: 0 }] },
-      },
-      pendingOrders: [],
-      bans: [],
-      bubbles: { oil: 0, uranium: 0, rare_earths: 0, titanium: 0 },
-      turnActivity: [],
+    bounties: [],
+    congress: {
+      nextCongressTurn: 10,
+      interval: 8,
+      activeResolutions: [],
+      history: [],
     },
   };
 }

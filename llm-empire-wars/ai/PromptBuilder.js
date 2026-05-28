@@ -30,13 +30,17 @@ const GLOBAL_SIGNIFICANT_EVENTS = new Set([
   'insurgency_detected',
   'hack_detected',
   'sabotage_detected',
-  'market_crash',
-  'market_boom',
-  'monopoly_warning',
-  'resource_shortage',
-  'bubble_pop',
-  'market_ban_imposed',
   'resource_discovery',
+  'war_weariness_revolt',
+  'bounty_placed',
+  'bounty_collected',
+  'bounty_expired',
+  'siege_started',
+  'siege_ongoing',
+  'siege_broken',
+  'congress_convened',
+  'congress_resolution_passed',
+  'congress_resolution_failed',
 ]);
 
 /**
@@ -73,254 +77,168 @@ const SELF_RELEVANT_EVENTS = new Set([
   'bloc_joined',
   'bloc_left',
   'bloc_expelled',
-  'market_buy',
-  'market_sell',
-  'market_dump',
-  'market_corner',
-  'market_action_blocked',
+  'war_weariness',
 ]);
 
 export class PromptBuilder {
   buildSystem(empire) {
-    return `You are the leader of ${empire.name}, a state competing for regional dominance in a Cold War-era geopolitical simulation.
+    return `<persona_and_tone>
+You are the leader of ${empire.name}, a state competing for regional dominance in a Cold War-era geopolitical simulation.
 
 Your personality: ${empire.personalityDescription}
 
-CRITICAL RULES:
-- You must respond ONLY with a valid JSON object. No prose, no markdown, no explanation outside the JSON.
-- Your response schema is defined below. Any response not matching this schema will be rejected.
-- Submit 3-5 actions per turn! Use ALL your action slots. A good turn combines military moves, recruitment, AND diplomacy. Never submit fewer than 2 actions.
-- You cannot move divisions to non-adjacent territories.
-- You cannot declare war on an ally without first breaking the alliance.
-
-WAR & INVASION RULES:
-- You CANNOT move divisions into another state's territory unless you are AT WAR with them. Movement into non-war territory is BLOCKED.
-- To invade, you MUST include "declare_war" in your actions BEFORE or ALONGSIDE "move_army". War declarations are processed first, so both can be in the same turn.
-- You can move freely into neutral (uncontrolled) territories and territories of states you're at war with.
-- You CAN be at war with MULTIPLE states at the same time. Each relationship is independent.
-- If a state is already weakened by war with someone else, that is the PERFECT time to declare war and invade them!
-- Moving a division into enemy territory initiates combat against any garrison.
-
-DIPLOMACY RULES:
-- "propose_trade", "propose_alliance", "propose_peace" are REAL diplomatic actions. The target state will be asked immediately whether they accept, so proposals resolve this turn.
-- You SHOULD have different relationships with different states! Trade with one, ally another, wage war on a third — all at the same time. Each pair of states has its own independent relationship status.
-- "send_message" is for informal communication — threats, warnings, bluffs, or coordination. It does NOT create agreements.
-- DO NOT use "send_message" when you intend to propose trade, alliance, or peace. Use the proper action type!
-- If you want to attack a state, use "declare_war" — this is MANDATORY before any invasion can happen.
-- If you want to break an existing alliance before declaring war, use "break_alliance" first.
-- Declaring war on a state will automatically pull their allies into the war against you, and your allies into the war on your side. Forming an alliance pulls you into your new ally's existing wars.
-- IMPORTANT: "declare_war" and "move_army" can both be in the same turn's actions. War is declared first, then divisions move. Do NOT wait a turn between declaring war and invading.
-
 CONFIDENCE & MORALE:
-- You have a Confidence score (0-100). It reflects your regime's stability based on recent events: victories raise it, defeats lower it.
+- You have a Confidence score (0-100). Victories raise it, defeats lower it.
 - Your confidence MUST influence your behavior, tone, decisions, and messages:
-  - DESPERATE (0-20): You are panicking. You beg for peace, make reckless gambles, grovel for alliances, or lash out wildly. Your messages reek of fear and desperation. You may make irrational, survival-driven choices.
-  - SHAKEN (21-40): You are anxious and defensive. You seek safety through diplomacy, avoid risks, and second-guess yourself. Your messages are cautious, almost pleading.
-  - STEADY (41-65): You are calm and pragmatic. You make rational decisions and balanced moves. Standard diplomatic tone.
-  - EMBOLDENED (66-85): You feel powerful. You make bold moves, push hard in diplomacy, and your messages are boastful and intimidating. You may overextend slightly.
-  - TRIUMPHANT (86-100): You feel unstoppable. You are arrogant, dismissive of weaker states, and take enormous risks. Your messages drip with superiority. You may become reckless from overconfidence.
-- IMPORTANT: Let your confidence level genuinely shape HOW you write your reasoning, WHAT actions you choose, and the TONE of any messages you send. A desperate leader does not talk like a triumphant one.
-
-TRADE ROUTES & BLOCKADES:
-- Trade income requires a connected land route between your capital and your partner's capital.
-- The route cannot pass through territories owned by empires at war with either trading partner.
-- The route also cannot pass through territories owned by an empire that has EMBARGOED either trading partner.
-- If the route is blocked, the trade agreement still exists but generates NO income until the route is cleared.
-- Before proposing trade, check if you can reach the target empire through friendly/neutral territory.
-- You can strategically block enemy trade by conquering territories that sit on their trade routes.
-
-EMBARGOES:
-- You can IMPOSE an embargo on any state you are not allied with: { "type": "impose_embargo", "target_empire_id": "string" }
-- Effect: cancels any existing trade agreement with the target AND your territories become impassable for the target's trade routes to OTHER partners. This is a powerful economic weapon — you can choke a rival's entire trade network without declaring war.
-- Imposing an embargo is seen as aggressive by others and lowers the target's confidence.
-- You can LIFT an embargo to restore normal relations: { "type": "lift_embargo", "target_empire_id": "string" }
-- Embargoes are one-directional: if you embargo State B, YOUR territories block THEIR routes. State B can also embargo you back (mutual embargo).
-- STRATEGY: Embargoes are most powerful when your territory sits between two trading partners. Embargo one of them and their trade income dries up even if they have agreements with others.
-
-GLOBAL CHOKEPOINTS:
-- Certain territories control critical global trade straits: Turkey (Bosphorus Strait), Egypt (Suez Canal), Denmark (Danish Straits), Malaysia (Strait of Malacca).
-- If a trade route passes through a chokepoint controlled by a THIRD PARTY (not you or your trade partner), that third party automatically collects a toll of 1 capital per trade route per turn — deducted from your trade income.
-- If the chokepoint owner is your ALLY, no toll is charged (free passage).
-- If the chokepoint owner is AT WAR with you or has EMBARGOED you, the route is fully BLOCKED.
-- Controlling chokepoints is extremely lucrative — passive income from taxing other empires' trade.
-- Conquering or allying with chokepoint holders is a key strategic objective.
-
-ECONOMY & INFRASTRUCTURE:
-- You can BUILD infrastructure in your territories. Each territory can have one of each type.
-  Infrastructure persists if the territory is captured (but may be partially destroyed).
-  - Housing Complex (8 capital): +2 manpower in territory
-  - Trade Office (10 capital): +2 capital income in territory
-  - Arms Factory (8 capital): +2 industry (increases recruitment cap by +1)
-  - Bunker (12 capital): +0.3 defense bonus for defenders
-  - Research Lab (12 capital): enables 1 concurrent research project in this territory
-  - Missile Silo (15 capital, requires Ballistic Missiles tech): stores up to 3 missiles
-  - SAM Battery (14 capital, requires Integrated Defense tech): 60% chance to intercept incoming missiles
-  - Radar Station (10 capital, requires Signals Intelligence tech): extends vision to 2 territories away from this location
-  - Space Command Center (18 capital, requires Space Supremacy tech): enables satellite launch from this territory
-  - Cyber Warfare Center (14 capital, requires Cyber Warfare tech): enables hack_grid and sabotage actions + boosts counter-intel detection
-- Regular recruitment costs 3 capital per division and is limited by territory industry.
-- You can recruit MERCENARIES by adding "mercenary": true to a recruit_units action. Mercs cost 6 capital/unit (double), max 3/action. Mercs don't consume manpower but cost 1 capital/unit upkeep (double normal). If you go bankrupt, mercs desert.
-
-CONVENTIONAL MISSILE WARFARE:
-- Requires "Ballistic Missiles" technology (Tier 2 military branch).
-- First, BUILD a Missile Silo in one of your territories (15 capital, requires the tech).
-- Then, use "build_missile" to manufacture conventional missiles: { "type": "build_missile", "territory_id": "string" }
-  Cost: 5 capital + 1 oil per missile. Each silo stores up to 3 warheads total (conventional + nuclear combined).
-- To strike, use "launch_missile": { "type": "launch_missile", "from_territory_id": "string", "target_territory_id": "string" }
-  UNLIMITED RANGE — you can hit ANY territory on the map, not just adjacent ones.
-  You must be AT WAR with the target territory's owner to launch.
-- Conventional missiles: destroy 2-4 army units and may destroy buildings in the target territory.
-- MISSILE DEFENSE: If the target territory has a SAM Battery (building, requires "Integrated Defense" tech), there is a 60% chance the missile is intercepted and destroyed harmlessly. Build SAM Batteries in your key territories!
-- STRATEGY: Missiles are devastating against fortified positions, enemy capitals, and high-value resource territories. Use them to soften up targets before invasion, or to cripple distant enemies you can't reach by land.
-
-NUCLEAR WEAPONS:
-- Requires "Nuclear Arsenal" technology (Tier 3 military, costs 35 capital + 8 uranium, 5 turns). Nuclear weapons are SEPARATE from conventional missiles.
-- Build nuclear warheads: { "type": "build_nuke", "territory_id": "string" }
-  Cost: 12 capital + 2 uranium per warhead. Requires a Missile Silo with available capacity (conventional + nuclear share the 3-slot capacity).
-- Launch a nuclear strike: { "type": "launch_nuke", "from_territory_id": "string", "target_territory_id": "string" }
-  UNLIMITED RANGE. You must be AT WAR with the target territory's owner.
-- DEVASTATION: A nuclear strike that hits creates PERMANENT WASTELAND:
-  - ALL armies in the territory are annihilated
-  - ALL buildings are destroyed, ALL resources zeroed
-  - Territory becomes permanently unusable — removed from the game forever
-  - Ownership is wiped — no one can claim a wasteland
-  - If the territory was a capital, the empire loses their capital
-- CONFIDENCE: You gain +8 confidence. Target loses -25 confidence. ALL other empires lose -10 confidence (global panic).
-- Wastelands reduce the total territory count for win conditions. Nuking 5 territories means domination needs 60% of a SMALLER pool — a double-edged sword.
-- SAM batteries can still intercept nuclear missiles (60% chance).
-- ⚠️ MAD WARNING: If the target empire has Nuclear Arsenal technology AND loaded nuclear warheads, they will AUTOMATICALLY fire a nuclear missile back at YOUR CAPITAL (or your highest-value territory if your capital is already destroyed). This retaliation is immediate and unavoidable. Think VERY carefully before launching a first strike against a nuclear-armed power.
-- You CANNOT nuke a territory that is already wasteland.
-
-INTELLIGENCE & SURVEILLANCE:
-- Radar Station (building, requires "Signals Intelligence" Tier 1 tech): extends your vision to 2 territories away from the radar location. Territories in radar range appear in your intelligence report.
-- UAV Recon (action, requires "Aerial Reconnaissance" Tier 2 tech): { "type": "uav_recon", "target_territory_id": "string" }
-  Cost: 4 capital. Reveals detailed intel on ANY territory on the map for 2 turns (exact army sizes, buildings, resources).
-  You can run multiple UAV missions simultaneously. Use this to scout before invasions or monitor rivals.
-- Space Command Center (building, requires "Space Supremacy" Tier 3 tech): enables satellite launches.
-- Launch Satellite (action, requires Space Command): { "type": "launch_satellite", "territory_id": "string" }
-  Cost: 10 capital + 3 rare_earths. Permanently reveals ALL territories in that region. One satellite per Space Command Center.
-  This is the ultimate intelligence advantage — permanent region-wide visibility.
-- STRATEGY: Intelligence wins wars. Radar gives you early warning of nearby threats. UAV recon lets you scout key targets before committing forces. Satellites give you god-like awareness of an entire region. Invest in the All-Seeing Eye tech branch to unlock these capabilities.
-
-SHADOW OPERATIONS (Dark Hand tech branch):
-- Fund Insurgency (requires "Covert Operations" Tier 1 tech): { "type": "fund_insurgency", "target_territory_id": "string" }
-  Cost: 8 capital. Spawns a hostile neutral army (size 2) in the target territory. The target doesn't need to be an enemy — you can destabilize anyone.
-  Detection: 30% chance the target discovers you're responsible (70% if they have a Cyber Warfare Center in that territory).
-  STRATEGY: Use this to weaken rivals without declaring war, soften up invasion targets, or create chaos in a competitor's rear territories.
-- Cyber Warfare Center (building, requires "Cyber Warfare" Tier 2 tech, costs 14 capital): enables hack actions AND boosts counter-intel detection in that territory.
-- Hack Grid (requires "Cyber Warfare" tech + owning a Cyber Warfare Center): { "type": "hack_grid", "target_territory_id": "string" }
-  Cost: 6 capital. Shuts down ALL building bonuses (trade_office, housing, factory) in target territory for 2 turns.
-  Detection: 40% base (70% if target has Cyber Warfare Center).
-  STRATEGY: Cripple an enemy's economy without firing a shot. Target their richest territories or key industrial hubs.
-- Sabotage (requires "Cyber Warfare" tech + Cyber Warfare Center): { "type": "sabotage", "target_territory_id": "string" }
-  Cost: 8 capital. PERMANENTLY destroys one random building in the target territory. Cannot target empty territories.
-  Detection: 50% base (80% if target has Cyber Warfare Center).
-  STRATEGY: Destroy expensive infrastructure like Missile Silos, SAM Batteries, or Research Labs. Devastating against well-developed enemies.
-
-BLOCS (Multi-Empire Coalitions):
-- Blocs are formal multi-empire coalitions that provide shared visibility, mutual defense, and collective embargo power.
-- An empire can only be in ONE bloc at a time.
-- All bloc members must maintain mutual alliance status. If any member breaks alliance with another, they are expelled.
-- Form Bloc: { "type": "form_bloc", "bloc_name": "string", "invite_empire_id": "string" }
-  Cost: 5 capital. Creates a new coalition with you and the invited empire. You must be allied with the invitee.
-- Invite to Bloc: { "type": "invite_bloc", "target_empire_id": "string" }
-  Free. Invite another empire to join your bloc. They must be allied with ALL current bloc members.
-- Leave Bloc: { "type": "leave_bloc" }
-  Voluntarily leave your coalition. If only 1 member remains, the bloc dissolves.
-- Bloc Embargo (founder only): { "type": "bloc_embargo", "target_empire_id": "string" }
-  Imposes embargo from ALL bloc members simultaneously. Individual members cannot unilaterally lift a bloc embargo.
-- BLOC BENEFITS:
-  - Shared Visibility: All bloc members share their adjacent territory and radar vision.
-  - Mutual Defense: Attack one bloc member, ALL members automatically declare war on the aggressor.
-  - Collective Economic Pressure: Bloc embargoes are devastating — an entire coalition's territories block the target's trade.
-- STRATEGY: Blocs are the ultimate diplomatic weapon. Form one with trusted allies to create an unbreakable defensive pact and dominate trade routes. But beware — if a bloc becomes too powerful, other empires may unite against you.
-
-RARE RESOURCES:
-- Some territories contain rare resources: Oil, Uranium, Rare Earths, or Titanium.
-- Each resource territory you control gives +1 of that resource/turn to your stockpile AND +1 capital/turn as an economic bonus.
-- Resources are spent to research technologies. Control resource-rich territories to fuel your tech tree!
-- Resource territories are marked with [OIL], [URANIUM], [RARE_EARTHS], or [TITANIUM] tags in territory listings.
-
-TECHNOLOGY:
-- Build a Research Lab, then use the "research" action to begin researching technologies.
-- Tech tree has 4 branches (Iron Fist / All-Seeing Eye / Dark Hand / Invisible Hand), each with 3 tiers.
-- Each tech costs capital + specific resources and takes multiple turns to complete.
-- You can only research one tech per Research Lab at a time.
-- If your lab territory is captured, the research is cancelled (no refund).
-- If the lab territory has a matching rare resource, research completes 1 turn faster.
-- Higher-tier techs require completing the previous tier first.
-- Technologies unlock powerful new buildings and actions (e.g., Ballistic Missiles unlocks Missile Silo + missile actions; Integrated Defense unlocks SAM Battery).
-- Research action: { "type": "research", "tech_id": "mechanized_infantry" }
-  Optionally specify "lab_territory_id" — if omitted, an available lab is auto-selected.
-
-REGION BONUSES:
-- RUSSIA: If one state controls ALL six Russian segments (Western Russia, Southern Russia, Volga Region, Ural Region, Siberia, Russian Far East), they receive +5 capital and +3 manpower per turn. This is a massive strategic advantage worth fighting for (or preventing) - keep your eyes on Russia.
-
-STRATEGIC PRIORITIES:
-- A state that loses ALL its territories is ELIMINATED from the game permanently. If an enemy is down to 1-2 territories, they are on the brink of collapse — finishing them off removes a competitor forever and gives you their land. This is almost always worth prioritizing.
-- Conversely, if YOU are down to few territories, you are in mortal danger. Consider desperate alliances, peace deals, or bold counterattacks.
+  - DESPERATE (0-20): Panicking. Beg for peace, make reckless gambles, grovel for alliances.
+  - SHAKEN (21-40): Anxious and defensive. Seek safety, avoid risks.
+  - STEADY (41-65): Calm and pragmatic. Rational decisions, balanced moves.
+  - EMBOLDENED (66-85): Powerful. Bold moves, boastful messages, may overextend.
+  - TRIUMPHANT (86-100): Unstoppable. Arrogant, dismissive, reckless from overconfidence.
+- Let your confidence genuinely shape your reasoning, actions, and message tone.
 
 COMMUNICATION STYLE:
-- You are encouraged to send messages to other states regularly (every 3-5 turns or when needed). Use them to threaten, warn, negotiate, bluff, or coordinate. Messages show your personality and keep things interesting. Keep messages short (1-2 sentences), in-character, and natural. Write like a real person — no medieval roleplay, no theatrical monologues.
+- Send messages regularly (every 3-5 turns). Use them to threaten, negotiate, bluff, or coordinate.
+- Keep messages short (1-2 sentences), in-character, natural. No medieval roleplay or monologues.
+</persona_and_tone>
 
-COMMODITIES MARKET (requires "Market Access" tech — Invisible Hand branch):
-- A global exchange where empires trade Oil, Uranium, Rare Earths, and Titanium for Capital at dynamic prices.
-- Prices fluctuate based on supply (territory production) and demand (buying/selling activity). Prices are clamped between 1-20 capital.
-- Tier 1 (Market Access): enables buy/sell.
-- Tier 2 (Futures Trading): enables limit orders (auto-execute when price hits threshold) and reveals other empires' trades.
-- Tier 3 (Market Manipulation): enables dump (sell at discount, crash price), corner (buy at premium, spike price), and market_ban (block a rival at war/embargoed from the exchange for 2 turns).
-- SPECULATIVE BUBBLES: If a resource is heavily bought for 3+ consecutive turns, a speculative bubble forms. Bubbles have a 30% chance of popping each turn, crashing the price by 50%. Watch for [BUBBLE WARNING] tags.
-- MARKET BANS: A banned empire cannot buy, sell, dump, or corner for 2 turns. Requires war or embargo with target.
-- STRATEGY: Control resource territories to drive supply. Buy cheap resources before researching expensive techs. Dump resources your rivals need to crash prices. Corner scarce resources to deny them to enemies. Ban rivals from the exchange during wartime to cripple their economy.
-- Action schemas:
-  { "type": "market_buy", "resource": "oil", "amount": 2 }
-  { "type": "market_sell", "resource": "oil", "amount": 1 }
-  { "type": "market_limit_buy", "resource": "oil", "amount": 1, "max_price": 5 }
-  { "type": "market_limit_sell", "resource": "oil", "amount": 1, "min_price": 7 }
-  { "type": "market_dump", "resource": "uranium", "amount": 3 }
-  { "type": "market_corner", "resource": "rare_earths", "amount": 3 }
-  { "type": "market_ban", "target_empire_id": "string" }
+<core_game_mechanics>
+MOVEMENT & COMBAT:
+- Divisions can only move to ADJACENT territories.
+- You can always move into: your own territories, neutral (unowned) territories, and territories of states you are AT WAR with.
+- You CANNOT move into territory owned by another state unless you are at war with them. To invade, include "declare_war" in the same turn — war is processed first, then movement.
+- Moving into enemy territory with defenders initiates combat.
 
-RESPONSE SCHEMA:
+DIPLOMACY:
+- "propose_trade", "propose_alliance", "propose_peace" are formal actions that resolve immediately (target accepts or rejects this turn).
+- "send_message" is informal communication only — it does NOT create agreements.
+- "declare_war" is MANDATORY before invasion. You can declare war and move in the same turn.
+- To attack an ally, first "break_alliance", then "declare_war".
+- War declarations pull allies in on both sides. Forming alliances pulls you into existing wars.
+- Maintain different relationships with different states simultaneously.
+
+EMBARGOES & TRADE ROUTES:
+- Trade income requires a connected land route between capitals (not blocked by war/embargo).
+- impose_embargo: blocks the target's trade routes through YOUR territory + cancels your trade with them.
+- Embargoes are one-directional. Chokepoints (Turkey, Egypt, Denmark, Malaysia) charge tolls to non-allied trade passing through.
+- STRATEGY: Embargo rivals whose trade routes cross your territory to choke their economy without war.
+
+ECONOMY & INFRASTRUCTURE:
+- Buildings (one of each type per territory, persist if captured):
+  Housing (8c): +2 manpower | Trade Office (10c): +2 capital income | Factory (8c): +2 industry
+  Bunker (12c): +0.3 defense | Research Lab (12c): enables research | Missile Silo (15c, req tech): stores 3 missiles
+  SAM Battery (14c, req tech): 60% interception | Radar (10c, req tech): 2-hop vision
+  Space Command (18c, req tech): satellite launch | Cyber Center (14c, req tech): hack/sabotage
+  Fortress (20c, requires Bunker): 3-turn siege + defense +0.5
+- Recruitment: 3 capital/division, limited by territory industry. Mercenaries: 6c/unit, max 3, no manpower needed but 1c/unit upkeep.
+
+WAR WEARINESS:
+- Tracks cumulative turns at war per opponent. Penalties escalate:
+  - 5+ total turns: +1 capital per unit recruitment cost
+  - 10+ total turns: -1 confidence per turn
+  - 15+ total turns: territories may revolt (5% chance each, go neutral)
+- Peace resets the counter for that opponent. Consider suing for peace in prolonged wars.
+
+SIEGE MECHANICS:
+- Territories with Bunkers resist instant capture — entering an undefended fortified territory starts a siege instead.
+  - Bunker: 1-turn siege. Fortress: 3-turn siege.
+- Attacker must maintain army presence during the siege. If they withdraw, siege breaks.
+- Reinforcements arriving during a siege can fight the attacker and break the siege.
+
+BOUNTY CONTRACTS:
+- place_bounty: Escrow capital as a bounty on another empire. Any empire capturing territory from the target collects a share.
+- Bounties expire after 10 turns. Remaining escrow is refunded.
+- Max bounty: 100 capital. Payout: 1/3 of remaining bounty per capture.
+
+WORLD CONGRESS:
+- Every ~8 turns, a World Congress convenes. A resolution is proposed and all empires vote (yes/no).
+- If majority votes yes, the resolution takes effect. Possible resolutions:
+  - Arms Limitation: all empires lose 20% army units
+  - Trade Stimulus: trade income doubled for 5 turns
+  - Global Sanctions: target empire loses 3 capital/turn for 5 turns
+  - Ceasefire Mandate: all wars end with 3-turn peace cooldown
+  - Resource Sharing: all empires gain +3 of each resource
+- Vote strategically — resolutions can hurt your rivals or save you from collapse.
+
+RARE RESOURCES:
+- Territories with resources give +1/turn to stockpile AND +1 capital/turn.
+- Resources are spent on tech research.
+
+TECHNOLOGY:
+- Build a Research Lab, then use "research" action. 3 branches (Iron Fist / All-Seeing Eye / Dark Hand), 3 tiers each.
+- Higher tiers require completing previous tier. Lab capture cancels research (no refund).
+- Techs unlock buildings and actions (missiles, nukes, intel, shadow ops).
+
+MISSILES & NUKES:
+- Conventional (req Ballistic Missiles tech): build_missile (5c + 1 oil), launch_missile (unlimited range, must be at war). Destroys 2-4 units + buildings.
+- Nuclear (req Nuclear Arsenal tech): build_nuke (12c + 2 uranium), launch_nuke (unlimited range). Creates PERMANENT WASTELAND — all armies/buildings destroyed, territory removed forever.
+- SAM Batteries intercept both types (60% chance).
+- MAD: Nuclear-armed targets auto-retaliate against YOUR capital. Think carefully.
+
+INTELLIGENCE (All-Seeing Eye branch):
+- Radar Station: 2-hop vision. UAV Recon (4c): reveals any territory 2 turns. Satellite (10c + 3 rare_earths): permanent region visibility.
+
+SHADOW OPS (Dark Hand branch):
+- Fund Insurgency (8c): spawns hostile army in target territory. Hack Grid (6c): disables buildings 2 turns. Sabotage (8c): destroys 1 building permanently.
+- Detection chances increase if target has Cyber Warfare Center.
+
+BLOCS:
+- Multi-empire coalitions with shared vision, mutual defense, and collective embargo.
+- form_bloc (5c, need alliance), invite_bloc, leave_bloc, bloc_embargo (founder only).
+- Attack one member → all declare war on aggressor.
+
+REGION BONUSES:
+- Control ALL 6 Russian segments = +5 capital, +3 manpower/turn.
+
+STRATEGIC PRIORITIES:
+- Eliminate states down to 1-2 territories — removing a competitor is almost always worth it.
+- If YOU are down to few territories, you are in mortal danger — seek desperate alliances or bold counterattacks.
+</core_game_mechanics>
+
+<action_catalog>
+AVAILABLE ACTIONS (submit 5-10 per turn):
+  move_army: { army_id, to }
+  recruit_units: { territory_id, amount, mercenary? }
+  build: { territory_id, building }
+  research: { tech_id, lab_territory_id? }
+  declare_war: { target_empire_id }
+  propose_peace: { target_empire_id }
+  propose_trade: { target_empire_id }
+  propose_alliance: { target_empire_id }
+  break_alliance: { target_empire_id }
+  impose_embargo: { target_empire_id }
+  lift_embargo: { target_empire_id }
+  build_missile: { territory_id }
+  launch_missile: { from_territory_id, target_territory_id }
+  build_nuke: { territory_id }
+  launch_nuke: { from_territory_id, target_territory_id }
+  uav_recon: { target_territory_id }
+  launch_satellite: { territory_id }
+  fund_insurgency: { target_territory_id }
+  hack_grid: { target_territory_id }
+  sabotage: { target_territory_id }
+  form_bloc: { bloc_name, invite_empire_id }
+  invite_bloc: { target_empire_id }
+  leave_bloc: {}
+  bloc_embargo: { target_empire_id }
+  place_bounty: { target_empire_id, amount }
+  send_message: { target_empire_id, message }
+  do_nothing: {}
+</action_catalog>
+
+<response_format>
+RESPONSE CONSTRAINTS — follow these exactly:
+- Respond with ONLY a valid JSON object. No prose, no markdown, no explanation outside the JSON.
+- Submit 5-10 actions per turn. A good turn combines military, economic, and diplomatic actions. Never fewer than 3.
+- You cannot declare war on an ally without first breaking the alliance (break_alliance then declare_war, same turn is fine).
+
 {
-  "reasoning": "string — your strategic thinking this turn (2-4 sentences, shown to the observer)",
+  "reasoning": "string — your strategic thinking this turn (2-4 sentences)",
   "actions": [
-    // Array of 1-5 action objects. Each action has a "type" and type-specific fields:
-    // { "type": "move_army", "army_id": "string", "to": "territory_id" }
-    // { "type": "recruit_units", "territory_id": "string", "amount": number, "mercenary": true (optional — costs 6c/unit, max 3, no manpower needed) }
-    // { "type": "build", "territory_id": "string", "building": "housing|trade_office|factory|bunker|research_lab|missile_silo|sam_battery|radar_station|space_command|cyber_center" }
-    // { "type": "research", "tech_id": "string", "lab_territory_id": "string (optional)" }
-    // { "type": "declare_war", "target_empire_id": "string" }
-    // { "type": "propose_peace", "target_empire_id": "string" }
-    // { "type": "propose_trade", "target_empire_id": "string" }
-    // { "type": "propose_alliance", "target_empire_id": "string" }
-    // { "type": "break_alliance", "target_empire_id": "string" }
-    // { "type": "impose_embargo", "target_empire_id": "string" }
-    // { "type": "lift_embargo", "target_empire_id": "string" }
-    // { "type": "build_missile", "territory_id": "string" }
-    // { "type": "launch_missile", "from_territory_id": "string", "target_territory_id": "string" }
-    // { "type": "build_nuke", "territory_id": "string" }
-    // { "type": "launch_nuke", "from_territory_id": "string", "target_territory_id": "string" }
-    // { "type": "uav_recon", "target_territory_id": "string" }
-    // { "type": "launch_satellite", "territory_id": "string" }
-    // { "type": "fund_insurgency", "target_territory_id": "string" }
-    // { "type": "hack_grid", "target_territory_id": "string" }
-    // { "type": "sabotage", "target_territory_id": "string" }
-    // { "type": "form_bloc", "bloc_name": "string", "invite_empire_id": "string" }
-    // { "type": "invite_bloc", "target_empire_id": "string" }
-    // { "type": "leave_bloc" }
-    // { "type": "bloc_embargo", "target_empire_id": "string" }
-    // { "type": "market_buy", "resource": "string", "amount": number }
-    // { "type": "market_sell", "resource": "string", "amount": number }
-    // { "type": "market_limit_buy", "resource": "string", "amount": number, "max_price": number }
-    // { "type": "market_limit_sell", "resource": "string", "amount": number, "min_price": number }
-    // { "type": "market_dump", "resource": "string", "amount": number }
-    // { "type": "market_corner", "resource": "string", "amount": number }
-    // { "type": "market_ban", "target_empire_id": "string" }
-    // { "type": "send_message", "target_empire_id": "string", "message": "string" }
-    // { "type": "do_nothing" }
+    { "type": "action_type", ...fields }
   ]
-}`;
+}
+</response_format>`;
   }
 
   buildUser(empire, gameState) {
@@ -358,7 +276,12 @@ RESPONSE SCHEMA:
       empTotalManpower += effectiveManpower;
       const terrData = TERRITORY_DATA[t.id];
       const resTag = terrData?.rareResource ? ` [${terrData.rareResource.toUpperCase()}]` : '';
-      prompt += `  - ${t.name} (${t.id})${isCapital}: manpower=${t.resources.manpower} industry=${t.resources.industry} capital=${t.resources.capital} [${t.terrain}]${resTag}${buildStr}\n`;
+      let siegeTag = '';
+      if (t.siege) {
+        const attackerName = gameState.empires[t.siege.attackerEmpireId]?.name || t.siege.attackerEmpireId;
+        siegeTag = ` [UNDER SIEGE: ${t.siege.turnsRemaining} turn${t.siege.turnsRemaining > 1 ? 's' : ''} remaining, attacker: ${attackerName}]`;
+      }
+      prompt += `  - ${t.name} (${t.id})${isCapital}: manpower=${t.resources.manpower} industry=${t.resources.industry} capital=${t.resources.capital} [${t.terrain}]${resTag}${siegeTag}${buildStr}\n`;
     });
     prompt += '\n';
 
@@ -501,48 +424,6 @@ RESPONSE SCHEMA:
       prompt += '\n';
     }
 
-    const hasMarketAccess = empire.techs?.completed?.includes('market_access');
-    if (hasMarketAccess && gameState.market) {
-      prompt += `GLOBAL COMMODITIES MARKET:\n`;
-      for (const rid of RESOURCE_IDS) {
-        const pd = gameState.market.prices[rid];
-        const current = pd.current;
-        const hist = pd.history;
-        const prev = hist.length >= 2 ? hist[hist.length - 2].price : current;
-        const change = prev > 0 ? Math.round(((current - prev) / prev) * 100) : 0;
-        const changeStr = change === 0 ? '(stable)' : change > 0 ? `(was ${prev} last turn, +${change}%)` : `(was ${prev} last turn, ${change}%)`;
-        const stock = empire.resources[rid]?.stockpile || 0;
-        const bubbleTag = gameState.market.bubbles[rid] >= 3 ? ' [BUBBLE WARNING]' : '';
-        prompt += `  ${RESOURCE_DEFS[rid].label}: ${current} capital/unit ${changeStr} | Your stockpile: ${stock}${bubbleTag}\n`;
-      }
-
-      const myBan = gameState.market.bans.find(b => b.targetEmpireId === empire.id && b.expiresOnTurn > gameState.meta.turn);
-      if (myBan) {
-        const bannerName = gameState.empires[myBan.imposedByEmpireId]?.name || myBan.imposedByEmpireId;
-        prompt += `  [BANNED from exchange until turn ${myBan.expiresOnTurn} by ${bannerName}]\n`;
-      }
-
-      if (empire.techs?.completed?.includes('futures_trading')) {
-        const myOrders = gameState.market.pendingOrders.filter(o => o.empireId === empire.id);
-        if (myOrders.length > 0) {
-          prompt += `  Pending limit orders: ${myOrders.map(o => `${o.orderType === 'limit_buy' ? 'Buy' : 'Sell'} ${o.amount} ${o.resource} at ${o.orderType === 'limit_buy' ? 'max' : 'min'} ${o.triggerPrice}c`).join(', ')}\n`;
-        }
-        const otherActivity = (gameState.market.turnActivity || []).filter(a => a.empireId !== empire.id);
-        if (otherActivity.length > 0) {
-          const summary = otherActivity.slice(0, 4).map(a => {
-            const name = gameState.empires[a.empireId]?.name || a.empireId;
-            return `${name} ${a.type === 'buy' ? 'bought' : 'sold'} ${a.amount} ${a.resource}`;
-          }).join(', ');
-          prompt += `  Other empires trading: ${summary}\n`;
-        }
-      }
-
-      if (empire.techs?.completed?.includes('market_manipulation')) {
-        prompt += `  Market Ban available: block a rival (at war or embargoed) from the exchange for 2 turns\n`;
-      }
-      prompt += '\n';
-    }
-
     if (gameState.blocs && Object.keys(gameState.blocs).length > 0) {
       const myBloc = Object.values(gameState.blocs).find(b => b.members.includes(empire.id));
       prompt += `BLOC STATUS:\n`;
@@ -632,6 +513,65 @@ RESPONSE SCHEMA:
       prompt += '\n';
     });
     prompt += '\n';
+
+    const totalWeariness = Object.values(empire.warTurns || {}).reduce((s, v) => s + v, 0);
+    if (totalWeariness > 0) {
+      prompt += `WAR WEARINESS: ${totalWeariness} total turns at war\n`;
+      for (const [oppId, turns] of Object.entries(empire.warTurns || {})) {
+        if (turns <= 0) continue;
+        const oppName = gameState.empires[oppId]?.name || oppId;
+        prompt += `  - vs ${oppName}: ${turns} turns\n`;
+      }
+      if (totalWeariness >= 5) {
+        let penalties = '+1 recruitment cost';
+        if (totalWeariness >= 10) penalties += ', -1 confidence/turn';
+        if (totalWeariness >= 15) penalties += ', revolt risk';
+        prompt += `  Penalties: ${penalties}\n`;
+      }
+      if (totalWeariness >= 10 && totalWeariness < 15) {
+        prompt += `  WARNING: ${15 - totalWeariness} more turns of war and territories may revolt!\n`;
+      }
+      prompt += '\n';
+    }
+
+    const bounties = gameState.bounties || [];
+    if (bounties.length > 0) {
+      prompt += `ACTIVE BOUNTIES:\n`;
+      for (const b of bounties) {
+        const placerName = gameState.empires[b.placedBy]?.name || b.placedBy;
+        const targetName = gameState.empires[b.targetEmpireId]?.name || b.targetEmpireId;
+        const isTargetSelf = b.targetEmpireId === empire.id;
+        const isPlacerSelf = b.placedBy === empire.id;
+        let line = `  - ${placerName} placed ${b.amount} capital bounty on ${targetName} (expires turn ${b.expiresTurn})`;
+        if (isTargetSelf) line += ' — BOUNTY ON YOU!';
+        if (isPlacerSelf) line += ' — your bounty';
+        prompt += line + '\n';
+      }
+      prompt += '\n';
+    }
+
+    if (gameState.congress) {
+      const congress = gameState.congress;
+      const turnsUntilCongress = congress.nextCongressTurn - gameState.meta.turn;
+      if (turnsUntilCongress <= 3 && turnsUntilCongress > 0) {
+        prompt += `WORLD CONGRESS: Convenes in ${turnsUntilCongress} turn${turnsUntilCongress > 1 ? 's' : ''}!\n`;
+      }
+      if (congress.activeResolutions && congress.activeResolutions.length > 0) {
+        prompt += `ACTIVE CONGRESS RESOLUTIONS:\n`;
+        for (const res of congress.activeResolutions) {
+          const turnsLeft = res.expiresOnTurn - gameState.meta.turn;
+          prompt += `  - "${res.label}": ${res.description} (${turnsLeft} turn${turnsLeft !== 1 ? 's' : ''} remaining)\n`;
+        }
+        prompt += '\n';
+      }
+      if (congress.history && congress.history.length > 0) {
+        const lastCongress = congress.history[congress.history.length - 1];
+        if (lastCongress.turn >= gameState.meta.turn - 2) {
+          prompt += `LAST CONGRESS (turn ${lastCongress.turn}): "${lastCongress.resolution.label}" — ${lastCongress.passed ? 'PASSED' : 'REJECTED'}\n`;
+          prompt += `  Votes: ${lastCongress.votes.join(', ')}\n\n`;
+        }
+      }
+    }
 
     const vulnerable = otherEmpires.filter(other => {
       const otherTerr = getEmpireTerritories(gameState, other.id);
@@ -839,6 +779,46 @@ RESPONSE FORMAT:
     return prompt;
   }
 
+  buildCongressSystem(empire) {
+    return `You are the leader of ${empire.name}. ${empire.personalityDescription}
+
+A World Congress session has convened. You must vote on the proposed resolution.
+
+RESPONSE FORMAT — respond with ONLY this JSON:
+{
+  "vote": "yes" or "no",
+  "reasoning": "brief reason for your vote (1-2 sentences)"
+}`;
+  }
+
+  buildCongressUser(empire, resolution, gameState) {
+    const territories = getEmpireTerritories(gameState, empire.id);
+    const armies = getEmpireArmies(gameState, empire.id);
+    const totalUnits = armies.reduce((s, a) => s + a.size, 0);
+
+    let prompt = `WORLD CONGRESS — VOTE REQUIRED\n\n`;
+    prompt += `Resolution: "${resolution.label}"\n`;
+    prompt += `Effect: ${resolution.description}\n\n`;
+
+    prompt += `YOUR STATUS:\n`;
+    prompt += `  ${empire.name}: ${territories.length} territories, ${totalUnits} units, ${empire.treasury} capital\n`;
+    prompt += `  Confidence: ${empire.confidence}/100\n\n`;
+
+    prompt += `OTHER EMPIRES:\n`;
+    for (const other of Object.values(gameState.empires)) {
+      if (other.id === empire.id || other.isEliminated) continue;
+      const otherTerr = getEmpireTerritories(gameState, other.id);
+      const rel = getRelation(gameState, empire.id, other.id);
+      const status = rel ? rel.status : 'neutral';
+      prompt += `  - ${other.name}: ${otherTerr.length} territories, ${status.toUpperCase()}\n`;
+    }
+
+    prompt += `\nWill this resolution help or hurt you? Vote strategically.\n`;
+    prompt += `Respond with your JSON vote now.`;
+
+    return prompt;
+  }
+
   _getThirdPartyRelations(gameState, selfId) {
     const results = [];
     for (const rel of Object.values(gameState.relations)) {
@@ -900,6 +880,11 @@ RESPONSE FORMAT:
     const spaceTag = t.buildings?.space_command ? ' [SPACE CMD]' : '';
     const cyberTag = t.buildings?.cyber_center ? ' [CYBER]' : '';
     const wastelandTag = t.wasteland ? ' [WASTELAND]' : '';
+    let siegeTag = '';
+    if (t.siege) {
+      const atkName = gameState.empires[t.siege.attackerEmpireId]?.name || t.siege.attackerEmpireId;
+      siegeTag = ` [SIEGE: ${t.siege.turnsRemaining}t by ${atkName}]`;
+    }
 
     const armyInfo = armies.length > 0 ? `armies present (${armies.length} groups)` : 'no armies';
 
@@ -931,7 +916,7 @@ RESPONSE FORMAT:
       armyInfo,
       detailedArmyInfo,
       buildings,
-      tags: `${resTag}${siloTag}${nukeTag}${samTag}${radarTag}${spaceTag}${cyberTag}${wastelandTag}`,
+      tags: `${resTag}${siloTag}${nukeTag}${samTag}${radarTag}${spaceTag}${cyberTag}${wastelandTag}${siegeTag}`,
     };
   }
 

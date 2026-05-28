@@ -8,7 +8,8 @@ import { MissileEngine } from './MissileEngine.js';
 import { IntelEngine } from './IntelEngine.js';
 import { ShadowEngine } from './ShadowEngine.js';
 import { BlocEngine } from './BlocEngine.js';
-import { MarketEngine } from './MarketEngine.js';
+import { BountyEngine } from './BountyEngine.js';
+import { CongressEngine } from './CongressEngine.js';
 import { ADJACENCY } from '../data/territories.js';
 
 export class GameEngine {
@@ -22,7 +23,8 @@ export class GameEngine {
     this.intel = new IntelEngine();
     this.shadow = new ShadowEngine();
     this.bloc = new BlocEngine();
-    this.market = new MarketEngine();
+    this.bounty = new BountyEngine();
+    this.congress = new CongressEngine();
   }
 
   resolveTurn(currentState) {
@@ -48,7 +50,7 @@ export class GameEngine {
     const launchSatelliteActions = {};
     const shadowActions = {};
     const blocActions = {};
-    const marketActions = {};
+    const bountyActions = {};
 
     for (const [empireId, actions] of Object.entries(allActions)) {
       breakActions[empireId] = actions.filter(a => a.type === 'break_alliance');
@@ -65,7 +67,7 @@ export class GameEngine {
       launchSatelliteActions[empireId] = actions.filter(a => a.type === 'launch_satellite');
       shadowActions[empireId] = actions.filter(a => ['fund_insurgency', 'hack_grid', 'sabotage'].includes(a.type));
       blocActions[empireId] = actions.filter(a => ['form_bloc', 'invite_bloc', 'leave_bloc', 'bloc_embargo'].includes(a.type));
-      marketActions[empireId] = actions.filter(a => a.type.startsWith('market_'));
+      bountyActions[empireId] = actions.filter(a => a.type === 'place_bounty');
       moveActions[empireId] = actions.filter(a => a.type === 'move_army');
       otherActions[empireId] = actions.filter(a =>
         ['propose_trade', 'propose_alliance', 'propose_peace', 'send_message'].includes(a.type)
@@ -83,14 +85,12 @@ export class GameEngine {
     allEvents.push(...this.bloc.processFormBloc(state, blocActions));
     allEvents.push(...this.bloc.processInviteBloc(state, blocActions));
     allEvents.push(...this.bloc.processLeaveBloc(state, blocActions));
+    // 4.5. Bounty placement
+    allEvents.push(...this.bounty.processPlaceBounty(state, bountyActions));
     // 5. Build actions (buildings)
     allEvents.push(...this.economy.processBuilding(state, buildActions));
     // 6. Recruit
     allEvents.push(...this.economy.processRecruitment(state, recruitActions));
-    // 6.5 Market: expire bans + execute limit orders
-    this.market.processMarketBans(state);
-    const limitOrderEvents = this.market.processLimitOrders(state);
-    if (limitOrderEvents) allEvents.push(...limitOrderEvents);
     // 7. Research
     allEvents.push(...this.research.processResearchActions(state, researchActions));
     // 8. Build missiles/nukes
@@ -121,22 +121,26 @@ export class GameEngine {
         }
       }
     }
+    // 12.5. Resolve sieges
+    allEvents.push(...this._resolveSieges(state));
     // 13. Combat
     const combatEvents = this.combat.resolve(state);
     allEvents.push(...combatEvents);
-    // 13.5 Market actions
-    allEvents.push(...this.market.processMarketActions(state, marketActions));
+    // 13.5. Bounty payouts
+    allEvents.push(...this.bounty.checkBountyPayouts(state, combatEvents));
     // 14. Research completion + resource income + intel expiry
     allEvents.push(...this.research.updateResearch(state));
     this.research.updateResourceIncome(state);
     this.intel.expireIntel(state);
     // 15. Economy update (respects gridDown events)
     allEvents.push(...this.economy.updateEconomy(state));
-    // 15.5 Market price update + bubble tracking
-    allEvents.push(...this.market.updateMarketPrices(state));
     // 16. World events
     const worldEvents = this.events.rollEvents(state);
     allEvents.push(...worldEvents);
+    // 16.5. Congress ongoing effects + bounty expiry
+    this.congress.applyOngoingResolutions(state);
+    this.congress.expireResolutions(state);
+    allEvents.push(...this.bounty.expireBounties(state));
     // 17. Proposals (trade, alliance, peace, messages)
     allEvents.push(...this.diplomacy.processDiplomaticActions(state, otherActions));
 
@@ -250,8 +254,31 @@ export class GameEngine {
         a => a.locationId === to && a.empireId === toOwner
       );
       if (!hasDefenders) {
+        const hasFortress = toTerritory.buildings?.fortress;
+        const hasBunker = toTerritory.buildings?.bunker;
+
+        if ((hasFortress || hasBunker) && !toTerritory.siege) {
+          const turnsRemaining = hasFortress ? 3 : 1;
+          toTerritory.siege = {
+            attackerEmpireId: empireId,
+            turnsRemaining,
+            startedTurn: state.meta.turn,
+          };
+          return {
+            success: true,
+            movement: { armyId: army.id, empireId, from, to },
+            event: {
+              turn: state.meta.turn,
+              type: 'siege_started',
+              description: `${empire.name} began a siege on ${toName} (${hasFortress ? 'Fortress' : 'Bunker'}: ${turnsRemaining} turn${turnsRemaining > 1 ? 's' : ''} remaining)`,
+              involvedEmpires: [empireId, toOwner],
+            },
+          };
+        }
+
         const previousOwner = state.empires[toOwner];
         toTerritory.ownerId = empireId;
+        toTerritory.siege = null;
         if (toTerritory.missiles) toTerritory.missiles = 0;
         const destroyed = rollBuildingDestruction(toTerritory);
         let desc = `${empire.name} captured the undefended ${toName} from ${previousOwner?.name || 'unknown'}!`;
@@ -281,6 +308,60 @@ export class GameEngine {
         involvedEmpires: [empireId],
       },
     };
+  }
+
+  _resolveSieges(state) {
+    const events = [];
+    for (const [tid, territory] of Object.entries(state.territories)) {
+      if (!territory.siege) continue;
+
+      const attackerArmies = Object.values(state.armies)
+        .filter(a => a.locationId === tid && a.empireId === territory.siege.attackerEmpireId);
+
+      if (attackerArmies.length === 0) {
+        territory.siege = null;
+        events.push({
+          turn: state.meta.turn,
+          type: 'siege_broken',
+          description: `Siege on ${territory.name} broken — attacker withdrew!`,
+          involvedEmpires: [territory.ownerId],
+        });
+        continue;
+      }
+
+      territory.siege.turnsRemaining -= 1;
+
+      if (territory.siege.turnsRemaining <= 0) {
+        const previousOwner = territory.ownerId;
+        territory.ownerId = territory.siege.attackerEmpireId;
+        territory.siege = null;
+        if (territory.missiles) territory.missiles = 0;
+        const destroyed = rollBuildingDestruction(territory);
+
+        const attackerName = state.empires[territory.ownerId]?.name || territory.ownerId;
+        const defenderName = state.empires[previousOwner]?.name || previousOwner;
+        let desc = `${attackerName} completed siege and captured ${territory.name} from ${defenderName}!`;
+        if (destroyed.length > 0) {
+          desc += ` (Destroyed: ${destroyed.join(', ')})`;
+        }
+        events.push({
+          turn: state.meta.turn,
+          type: 'territory_captured',
+          description: desc,
+          involvedEmpires: [territory.ownerId, previousOwner].filter(Boolean),
+          territoryId: tid,
+        });
+      } else {
+        const attackerName = state.empires[territory.siege.attackerEmpireId]?.name || territory.siege.attackerEmpireId;
+        events.push({
+          turn: state.meta.turn,
+          type: 'siege_ongoing',
+          description: `Siege on ${territory.name} continues by ${attackerName} (${territory.siege.turnsRemaining} turn${territory.siege.turnsRemaining > 1 ? 's' : ''} remaining)`,
+          involvedEmpires: [territory.siege.attackerEmpireId, territory.ownerId].filter(Boolean),
+        });
+      }
+    }
+    return events;
   }
 
   _getRelationBetweenEmpires(state, empireA, empireB) {

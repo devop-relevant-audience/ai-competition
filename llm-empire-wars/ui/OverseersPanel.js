@@ -19,7 +19,6 @@ export class OverseersPanel {
     const extraCb = callbacks.extraCallbacks || {};
     extraCb.onOpenAnalytics = () => this.analyticsPanel.open();
     extraCb.onOpenBalance = () => this._onOpenBalance && this._onOpenBalance();
-    extraCb.onOpenMarket = () => this._onOpenMarket && this._onOpenMarket();
 
     this.turnControls = new TurnControls(
       document.getElementById('turn-controls'),
@@ -129,10 +128,6 @@ export class OverseersPanel {
 
   onOpenBalance(callback) {
     this._onOpenBalance = callback;
-  }
-
-  onOpenMarket(callback) {
-    this._onOpenMarket = callback;
   }
 
   updateState(gameState) {

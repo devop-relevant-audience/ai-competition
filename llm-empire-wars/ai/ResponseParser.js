@@ -30,13 +30,7 @@ const ACTION_SCHEMA = {
   invite_bloc:       { required: ['target_empire_id'] },
   leave_bloc:        { required: [] },
   bloc_embargo:      { required: ['target_empire_id'] },
-  market_buy:        { required: ['resource', 'amount'] },
-  market_sell:       { required: ['resource', 'amount'] },
-  market_limit_buy:  { required: ['resource', 'amount', 'max_price'] },
-  market_limit_sell: { required: ['resource', 'amount', 'min_price'] },
-  market_dump:       { required: ['resource', 'amount'] },
-  market_corner:     { required: ['resource', 'amount'] },
-  market_ban:        { required: ['target_empire_id'] },
+  place_bounty:      { required: ['target_empire_id', 'amount'] },
   do_nothing:        { required: [] },
 };
 
@@ -66,8 +60,8 @@ export class ResponseParser {
       parsed.actions = [{ type: 'do_nothing' }];
     }
 
-    if (parsed.actions.length > 5) {
-      parsed.actions = parsed.actions.slice(0, 5);
+    if (parsed.actions.length > 10) {
+      parsed.actions = parsed.actions.slice(0, 10);
     }
 
     const validActions = [];
@@ -189,17 +183,8 @@ export class ResponseParser {
         return action;
       case 'bloc_embargo':
         return this._coerceBlocEmbargo(action, empireId, gameState);
-      case 'market_buy':
-      case 'market_sell':
-      case 'market_dump':
-      case 'market_corner':
-        return this._coerceMarketTrade(action, empireId, gameState);
-      case 'market_limit_buy':
-        return this._coerceMarketLimitBuy(action, empireId, gameState);
-      case 'market_limit_sell':
-        return this._coerceMarketLimitSell(action, empireId, gameState);
-      case 'market_ban':
-        return this._coerceMarketBan(action, empireId, gameState);
+      case 'place_bounty':
+        return this._coercePlaceBounty(action, empireId, gameState);
       default:
         return action;
     }
@@ -516,55 +501,34 @@ export class ResponseParser {
     return { ...action, target_empire_id: targetId };
   }
 
-  _coerceMarketTrade(action, empireId, gameState) {
-    const empire = gameState.empires[empireId];
-    const requiredTech = (action.type === 'market_dump' || action.type === 'market_corner')
-      ? 'market_manipulation' : 'market_access';
-    if (!empire?.techs?.completed?.includes(requiredTech)) return null;
-
-    const resource = String(action.resource || '').toLowerCase();
-    if (!RESOURCE_IDS.includes(resource)) return null;
-
-    const amount = Math.max(1, Math.min(5, parseInt(action.amount, 10) || 1));
-    return { ...action, resource, amount };
-  }
-
-  _coerceMarketLimitBuy(action, empireId, gameState) {
-    const empire = gameState.empires[empireId];
-    if (!empire?.techs?.completed?.includes('futures_trading')) return null;
-
-    const resource = String(action.resource || '').toLowerCase();
-    if (!RESOURCE_IDS.includes(resource)) return null;
-
-    const amount = Math.max(1, Math.min(5, parseInt(action.amount, 10) || 1));
-    const maxPrice = parseFloat(action.max_price) || 5;
-    return { ...action, resource, amount, max_price: maxPrice };
-  }
-
-  _coerceMarketLimitSell(action, empireId, gameState) {
-    const empire = gameState.empires[empireId];
-    if (!empire?.techs?.completed?.includes('futures_trading')) return null;
-
-    const resource = String(action.resource || '').toLowerCase();
-    if (!RESOURCE_IDS.includes(resource)) return null;
-
-    const amount = Math.max(1, Math.min(5, parseInt(action.amount, 10) || 1));
-    const minPrice = parseFloat(action.min_price) || 5;
-    return { ...action, resource, amount, min_price: minPrice };
-  }
-
-  _coerceMarketBan(action, empireId, gameState) {
-    const empire = gameState.empires[empireId];
-    if (!empire?.techs?.completed?.includes('market_manipulation')) return null;
-
+  _coercePlaceBounty(action, empireId, gameState) {
     const targetId = this._resolveEmpireId(action.target_empire_id, empireId, gameState);
     if (!targetId) return null;
 
-    const key = empireId < targetId ? `${empireId}__${targetId}` : `${targetId}__${empireId}`;
-    const rel = gameState.relations[key];
-    if (!rel || (rel.status !== 'war' && !rel.embargo)) return null;
+    const empire = gameState.empires[empireId];
+    if (!empire) return null;
 
-    return { ...action, target_empire_id: targetId };
+    const amount = Math.min(
+      Math.max(1, parseInt(action.amount, 10) || 1),
+      empire.treasury,
+      100
+    );
+    if (amount <= 0) return null;
+
+    return { ...action, target_empire_id: targetId, amount };
+  }
+
+  parseCongressVote(rawContent) {
+    const jsonStr = this._extractJSON(rawContent);
+    try {
+      const parsed = JSON.parse(jsonStr);
+      return {
+        vote: parsed.vote === 'yes' ? 'yes' : 'no',
+        reasoning: parsed.reasoning || '',
+      };
+    } catch {
+      return { vote: 'no', reasoning: 'Failed to parse vote' };
+    }
   }
 
   _resolveArmyId(armyId, empireId, gameState) {
@@ -702,6 +666,14 @@ export class ResponseParser {
       if (action.from_territory_id === action.target_territory_id) {
         return { valid: false, error: `${action.type}: from and target territory must be different` };
       }
+    }
+
+    if (action.type === 'place_bounty') {
+      action.amount = parseInt(action.amount, 10);
+      if (isNaN(action.amount) || action.amount < 1) {
+        return { valid: false, error: 'place_bounty: amount must be >= 1' };
+      }
+      action.amount = Math.min(action.amount, 100);
     }
 
     if (action.type === 'form_bloc') {

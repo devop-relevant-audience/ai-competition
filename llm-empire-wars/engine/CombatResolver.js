@@ -93,8 +93,9 @@ export class CombatResolver {
         else if (eId === 'neutral') memberNames.push('Neutral garrison');
       }
 
-      const fortressBonus = isDefender && territory.buildings?.bunker ? 0.3 : 0;
-      const modifier = isDefender ? (defenderBonus + fortressBonus) * capitalBonus : 1.0;
+      const bunkerBonus = isDefender && territory.buildings?.bunker ? 0.3 : 0;
+      const fortressBonus = isDefender && territory.buildings?.fortress ? 0.5 : 0;
+      const modifier = isDefender ? (defenderBonus + bunkerBonus + fortressBonus) * capitalBonus : 1.0;
       const roll = 0.75 + Math.random() * 0.5;
       const score = totalSize * modifier * roll;
 

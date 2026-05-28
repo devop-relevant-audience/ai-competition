@@ -1,5 +1,6 @@
 import { getEmpireTerritories, getEmpireArmies, adjustConfidence, findTradeRoute, computeChokepointTolls } from './GameState.js';
 import { BUILDING_DEFS, RUSSIA_SEGMENTS } from '../data/territories.js';
+import { CongressEngine } from './CongressEngine.js';
 
 export class EconomyEngine {
   processBuilding(state, allActions) {
@@ -18,6 +19,7 @@ export class EconomyEngine {
         if (!def) continue;
 
         if (def.techRequired && !empire.techs?.completed?.includes(def.techRequired)) continue;
+        if (def.requiresBuilding && !territory.buildings?.[def.requiresBuilding]) continue;
 
         if (!territory.buildings) territory.buildings = {};
         if (territory.buildings[action.building]) continue;
@@ -87,11 +89,14 @@ export class EconomyEngine {
           const maxRecruit = Math.floor(effectiveProd / 2);
           const amount = Math.min(action.amount || 0, maxRecruit);
           const goldCost = amount * 3;
+          const weariness = Object.values(empire.warTurns || {}).reduce((s, v) => s + v, 0);
+          const wearinessSurcharge = weariness >= 5 ? amount * 1 : 0;
+          const totalCost = goldCost + wearinessSurcharge;
 
           if (amount <= 0) continue;
-          if (empire.treasury < goldCost) continue;
+          if (empire.treasury < totalCost) continue;
 
-          empire.treasury -= goldCost;
+          empire.treasury -= totalCost;
 
           const existingArmy = Object.values(state.armies)
             .find(a => a.empireId === empireId && a.locationId === action.territory_id && !a.isMercenary);
@@ -193,6 +198,11 @@ export class EconomyEngine {
         }
       }
 
+      const congressEngine = new CongressEngine();
+      if (congressEngine.isTradeStimulus(state)) {
+        tradeIncome *= 2;
+      }
+
       const regionBonus = this._checkRegionBonuses(state, empire.id, territories);
       capitalIncome += regionBonus.capital;
       totalManpower += regionBonus.manpower;
@@ -244,6 +254,53 @@ export class EconomyEngine {
           turn: state.meta.turn,
           type: 'mercenaries_deserted',
           description: `${empire.name} is bankrupt! Mercenaries desert.`,
+          involvedEmpires: [empire.id],
+        });
+      }
+
+      if (!empire.warTurns) empire.warTurns = {};
+      for (const rel of Object.values(state.relations)) {
+        if (rel.status !== 'war') continue;
+        const opponentId = rel.empireA === empire.id ? rel.empireB :
+                           rel.empireB === empire.id ? rel.empireA : null;
+        if (!opponentId) continue;
+        empire.warTurns[opponentId] = (empire.warTurns[opponentId] || 0) + 1;
+      }
+
+      const totalWeariness = Object.values(empire.warTurns).reduce((s, v) => s + v, 0);
+
+      if (totalWeariness >= 10) {
+        adjustConfidence(empire, -1);
+      }
+
+      if (totalWeariness >= 15) {
+        for (const t of territories) {
+          if (t.capital) continue;
+          if (Math.random() < 0.05) {
+            t.ownerId = null;
+            for (const [aid, army] of Object.entries(state.armies)) {
+              if (army.locationId === t.id && army.empireId === empire.id) {
+                delete state.armies[aid];
+              }
+            }
+            events.push({
+              turn: state.meta.turn,
+              type: 'war_weariness_revolt',
+              description: `${t.name} has revolted against ${empire.name} due to extreme war weariness!`,
+              involvedEmpires: [empire.id],
+            });
+          }
+        }
+      }
+
+      if (totalWeariness >= 5) {
+        let penaltyDesc = '+1 recruitment cost';
+        if (totalWeariness >= 10) penaltyDesc += ', -1 confidence/turn';
+        if (totalWeariness >= 15) penaltyDesc += ', revolt risk';
+        events.push({
+          turn: state.meta.turn,
+          type: 'war_weariness',
+          description: `${empire.name} suffers war weariness (${totalWeariness} total turns at war). Penalties: ${penaltyDesc}`,
           involvedEmpires: [empire.id],
         });
       }

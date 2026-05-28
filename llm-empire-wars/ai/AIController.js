@@ -1,6 +1,7 @@
 import { callAI } from './OpenRouterClient.js';
 import { PromptBuilder } from './PromptBuilder.js';
 import { ResponseParser } from './ResponseParser.js';
+import { CongressEngine } from '../engine/CongressEngine.js';
 
 const PROPOSAL_TYPES = ['propose_trade', 'propose_alliance', 'propose_peace'];
 
@@ -8,9 +9,17 @@ export class AIController {
   constructor() {
     this.promptBuilder = new PromptBuilder();
     this.parser = new ResponseParser();
+    this.congressEngine = new CongressEngine();
   }
 
   async runAITurn(gameState) {
+    if (this.congressEngine.shouldConvene(gameState)) {
+      const resolution = this.congressEngine.generateResolution(gameState);
+      const votes = await this._runCongressVote(gameState, resolution);
+      const congressEvents = this.congressEngine.applyResolution(gameState, resolution, votes);
+      gameState.eventLog.push(...congressEvents);
+    }
+
     const empires = Object.values(gameState.empires).filter(e => !e.isEliminated);
     const results = {};
 
@@ -81,6 +90,26 @@ export class AIController {
       reasoning: `[AI Error after ${maxAttempts} attempts: ${lastError}] Empire does nothing.`,
       actions: [{ type: 'do_nothing' }],
     };
+  }
+
+  async _runCongressVote(gameState, resolution) {
+    const empires = Object.values(gameState.empires).filter(e => !e.isEliminated);
+    const votes = {};
+
+    const promises = empires.map(async (empire) => {
+      try {
+        const systemPrompt = this.promptBuilder.buildCongressSystem(empire);
+        const userPrompt = this.promptBuilder.buildCongressUser(empire, resolution, gameState);
+        const raw = await callAI(systemPrompt, userPrompt, { model: empire.model, maxTokens: 300 });
+        votes[empire.id] = this.parser.parseCongressVote(raw);
+      } catch (err) {
+        console.error(`Congress vote failed for ${empire.name}:`, err);
+        votes[empire.id] = { vote: 'no', reasoning: 'Failed to vote' };
+      }
+    });
+
+    await Promise.allSettled(promises);
+    return votes;
   }
 
   async _resolveProposals(gameState) {
